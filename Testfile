@@ -1,0 +1,127 @@
+nevigationdata ts
+
+export type Step = {
+  label: string;
+  status: 'Not Started' | 'In Progress' | 'Completed';
+  path: string;
+  subSteps?: Step[];
+};
+
+export const navigationSteps: Step[] = [
+  {
+    label: 'Transaction Information',
+    status: 'Completed',
+    path: '/transaction-info',
+  },
+  {
+    label: 'Data setup',
+    status: 'In Progress',
+    path: '/data-setup',
+    subSteps: [
+      { label: 'Data mapping', status: 'Not Started', path: '/data-mapping' },
+      { label: 'Data cleansing', status: 'Not Started', path: '/data-cleansing' },
+      { label: 'Data ingestion report', status: 'Not Started', path: '/data-ingestion' },
+    ],
+  },
+  {
+    label: 'Capital structure configuration',
+    status: 'Not Started',
+    path: '/capital-structure',
+  },
+  {
+    label: 'Key metrics configuration',
+    status: 'Not Started',
+    path: '/key-metrics',
+  },
+];
+
+sidebar
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { List, ListItemText, Collapse } from '@mui/material';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import { SidebarContainer, StyledListItem, SubMenu } from './SidebarStyles';
+import { navigationSteps, Step } from './navigationData';
+
+const Sidebar: React.FC = () => {
+  const [openStep, setOpenStep] = useState<string | null>(null);
+  const [selectedStep, setSelectedStep] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleStepClick = (step: Step) => {
+    setSelectedStep(step.label);
+    navigate(step.path);
+    if (step.subSteps) {
+      setOpenStep(openStep === step.label ? null : step.label);
+    }
+  };
+
+  return (
+    <SidebarContainer>
+      <List>
+        {navigationSteps.map((step) => (
+          <React.Fragment key={step.label}>
+            <StyledListItem active={selectedStep === step.label} onClick={() => handleStepClick(step)}>
+              <ListItemText primary={step.label} />
+              {step.subSteps && (openStep === step.label ? <ExpandLess /> : <ExpandMore />)}
+            </StyledListItem>
+            {step.subSteps && (
+              <Collapse in={openStep === step.label} timeout="auto" unmountOnExit>
+                <List disablePadding>
+                  {step.subSteps.map((subStep) => (
+                    <StyledListItem
+                      key={subStep.label}
+                      active={selectedStep === subStep.label}
+                      onClick={() => {
+                        setSelectedStep(subStep.label);
+                        navigate(subStep.path);
+                      }}
+                    >
+                      <SubMenu>{subStep.label}</SubMenu>
+                    </StyledListItem>
+                  ))}
+                </List>
+              </Collapse>
+            )}
+          </React.Fragment>
+        ))}
+      </List>
+    </SidebarContainer>
+  );
+};
+
+export default Sidebar;
+
+style
+
+
+// SidebarStyles.ts
+import styled from 'styled-components';
+import { ListItemButton } from '@mui/material';
+
+export const SidebarContainer = styled.div`
+  width: 250px;
+  height: 100vh;
+  background-color: #f8f9fa;
+  padding: 10px;
+`;
+
+export const StyledListItem = styled(ListItemButton)<{ active?: boolean }>`
+  && {
+    background-color: ${(props) => (props.active ? '#e0e7ff' : 'transparent')};
+    border-left: ${(props) => (props.active ? '4px solid #3f51b5' : 'none')};
+    margin-bottom: 5px;
+    transition: background-color 0.3s ease;
+  }
+`;
+
+export const SubMenu = styled.div`
+  padding-left: 20px;
+  font-size: 14px;
+  color: #6c757d;
+`;
+
+
+
+
