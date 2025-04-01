@@ -116,6 +116,8 @@ export const StyledSubMenuItem = styled(ListItem)<{ status: string }>`
 `;
 
 
+/// sidebar old 
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { List, ListItemText, Collapse } from '@mui/material';
@@ -173,4 +175,96 @@ const Sidebar: React.FC = () => {
 
 export default Sidebar;
 
+
+test cases
+
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { BrowserRouter as Router } from 'react-router-dom';
+import Sidebar from '../Sidebar';
+import { navigationSteps } from '../navigationData';
+
+describe('Sidebar Navigation', () => {
+  test('renders all main menu items', () => {
+    render(
+      <Router>
+        <Sidebar />
+      </Router>
+    );
+
+    // Check if all main menu items exist
+    navigationSteps.forEach((step) => {
+      expect(screen.getByText(step.label)).toBeInTheDocument();
+    });
+  });
+
+  test('expands and collapses submenu on click', () => {
+    render(
+      <Router>
+        <Sidebar />
+      </Router>
+    );
+
+    // Find Data Setup menu item
+    const dataSetupItem = screen.getByText('Data setup');
+    expect(dataSetupItem).toBeInTheDocument();
+
+    // Click to expand submenu
+    fireEvent.click(dataSetupItem);
+
+    // Check if submenus appear
+    navigationSteps[1].subSteps?.forEach((subStep) => {
+      expect(screen.getByText(subStep.label)).toBeInTheDocument();
+    });
+
+    // Click again to collapse submenu
+    fireEvent.click(dataSetupItem);
+
+    navigationSteps[1].subSteps?.forEach((subStep) => {
+      expect(screen.queryByText(subStep.label)).not.toBeInTheDocument();
+    });
+  });
+
+  test('navigates to correct route when menu item is clicked', () => {
+    render(
+      <Router>
+        <Sidebar />
+      </Router>
+    );
+
+    // Find and click "Transaction Information"
+    const transactionInfoItem = screen.getByText('Transaction Information');
+    fireEvent.click(transactionInfoItem);
+
+    // Check if it's highlighted (active)
+    expect(transactionInfoItem).toHaveStyle('background-color: #e0e7ff');
+
+    // Find and click "Key Metrics Configuration"
+    const keyMetricsItem = screen.getByText('Key metrics configuration');
+    fireEvent.click(keyMetricsItem);
+
+    // Check if it's highlighted (active)
+    expect(keyMetricsItem).toHaveStyle('background-color: #e0e7ff');
+  });
+
+  test('only one menu item is highlighted at a time', () => {
+    render(
+      <Router>
+        <Sidebar />
+      </Router>
+    );
+
+    // Click "Transaction Information"
+    const transactionInfoItem = screen.getByText('Transaction Information');
+    fireEvent.click(transactionInfoItem);
+
+    // Click "Key Metrics Configuration"
+    const keyMetricsItem = screen.getByText('Key metrics configuration');
+    fireEvent.click(keyMetricsItem);
+
+    // Ensure only "Key Metrics Configuration" is active
+    expect(keyMetricsItem).toHaveStyle('background-color: #e0e7ff');
+    expect(transactionInfoItem).not.toHaveStyle('background-color: #e0e7ff');
+  });
+});
 
