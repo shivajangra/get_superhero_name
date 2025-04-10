@@ -1,270 +1,181 @@
-nevigationdata ts
-// src/data/menuData.ts
-export interface SubMenu {
-  id: string;
-  label: string;
-  path: string;
-  status: 'in-progress' | 'completed' | 'pending';
+import React, { useState } from 'react';
+import {
+  Box, Table, TableBody, TableCell, TableContainer, TableHead,
+  TableRow, Paper, Checkbox, IconButton, Collapse, MenuItem, TextField, Button, Typography
+} from '@mui/material';
+import { styled } from 'styled-components';
+import { ExpandLess, ExpandMore, Delete } from '@mui/icons-material';
+
+interface Rule {
+  type: string;
+  value1?: string;
+  value2?: string;
 }
 
-export interface Menu {
-  id: string;
-  label: string;
-  path: string;
-  subMenus?: SubMenu[];
+interface RowData {
+  field: string;
+  method: string;
+  required: boolean;
+  rules: Rule[];
 }
 
-export const menuData: Menu[] = [
-  {
-    id: "transaction",
-    label: "Transaction",
-    path: "/transaction/1/details",
-    subMenus: [
-      { id: "details", label: "Details", path: "/transaction/1/details", status: "completed" },
-      { id: "review", label: "Review", path: "/transaction/1/review", status: "in-progress" },
-      { id: "confirm", label: "Confirm", path: "/transaction/1/confirm", status: "pending" },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    path: "/reports",
-  },
+const initialData: RowData[] = [
+  { field: 'Loan_ID', method: 'Text', required: true, rules: [] },
+  { field: 'Group_Loan_ID', method: 'Text', required: true, rules: [] },
+  { field: 'Loan_Securitised_ID', method: 'Text', required: true, rules: [] }
 ];
 
+const ruleTypes = ['Change case', 'Find and replace', 'Find and remove'];
 
-sidebar
-// src/components/Sidebar.tsx
-import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { SidebarContainer, StyledList, StyledListItem, StyledSubMenuItem } from "./SidebarStyles";
-import { menuData } from "../data/menuData";
+const Container = styled(Box)`
+  padding: 24px;
+`;
 
-const Sidebar: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
+const CollapsibleRow = ({
+  row,
+  index,
+  updateRules
+}: {
+  row: RowData;
+  index: number;
+  updateRules: (index: number, rules: Rule[]) => void;
+}) => {
+  const [open, setOpen] = useState(false);
 
-  const handleNavigation = (path: string, status?: string) => {
-    if (status !== "pending") navigate(path);
+  const handleRuleChange = (ruleIndex: number, field: keyof Rule, value: string) => {
+    const newRules = [...row.rules];
+    newRules[ruleIndex][field] = value;
+    updateRules(index, newRules);
+  };
+
+  const addRule = () => {
+    updateRules(index, [...row.rules, { type: '', value1: '', value2: '' }]);
+  };
+
+  const deleteRule = (ruleIndex: number) => {
+    const newRules = row.rules.filter((_, i) => i !== ruleIndex);
+    updateRules(index, newRules);
   };
 
   return (
-    <SidebarContainer>
-      <StyledList>
-        {menuData.map((menu) => {
-          const isSelected = location.pathname.startsWith(menu.path);
-          return (
-            <div key={menu.id}>
-              <StyledListItem selected={isSelected} onClick={() => !menu.subMenus && navigate(menu.path)}>
-                <span>{menu.label}</span>
-              </StyledListItem>
-              {menu.subMenus &&
-                menu.subMenus.map((sub) => (
-                  <StyledSubMenuItem
-                    key={sub.id}
-                    status={sub.status}
-                    onClick={() => handleNavigation(sub.path, sub.status)}
+    <>
+      <TableRow>
+        <TableCell>{row.field}</TableCell>
+        <TableCell>{row.method}</TableCell>
+        <TableCell><Checkbox checked={row.required} disabled /></TableCell>
+        <TableCell>
+          {row.rules.map(r => r.type).join('; ') || '-'}
+        </TableCell>
+        <TableCell>
+          <IconButton onClick={() => setOpen(!open)}>
+            {open ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </TableCell>
+      </TableRow>
+
+      <TableRow>
+        <TableCell colSpan={5} style={{ padding: 0 }}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box padding={2} display="flex" flexDirection="column" gap={2}>
+              {row.rules.map((rule, rIdx) => (
+                <Box key={rIdx} display="flex" gap={2} alignItems="center">
+                  <TextField
+                    select
+                    label="Rule Type"
+                    value={rule.type}
+                    onChange={(e) => handleRuleChange(rIdx, 'type', e.target.value)}
+                    size="small"
+                    sx={{ width: '200px' }}
                   >
-                    <span>{sub.label}</span>
-                  </StyledSubMenuItem>
-                ))}
-            </div>
-          );
-        })}
-      </StyledList>
-    </SidebarContainer>
+                    {ruleTypes.map((type) => (
+                      <MenuItem key={type} value={type}>{type}</MenuItem>
+                    ))}
+                  </TextField>
+
+                  {(rule.type === 'Find and replace' || rule.type === 'Find and remove') && (
+                    <TextField
+                      label="Find"
+                      value={rule.value1}
+                      onChange={(e) => handleRuleChange(rIdx, 'value1', e.target.value)}
+                      size="small"
+                    />
+                  )}
+
+                  {rule.type === 'Find and replace' && (
+                    <TextField
+                      label="Replace"
+                      value={rule.value2}
+                      onChange={(e) => handleRuleChange(rIdx, 'value2', e.target.value)}
+                      size="small"
+                    />
+                  )}
+
+                  {rule.type === 'Change case' && (
+                    <TextField
+                      select
+                      label="Case"
+                      value={rule.value1 || 'Uppercase'}
+                      onChange={(e) => handleRuleChange(rIdx, 'value1', e.target.value)}
+                      size="small"
+                      sx={{ width: '150px' }}
+                    >
+                      <MenuItem value="Uppercase">Uppercase</MenuItem>
+                      <MenuItem value="Lowercase">Lowercase</MenuItem>
+                    </TextField>
+                  )}
+
+                  <IconButton onClick={() => deleteRule(rIdx)}>
+                    <Delete />
+                  </IconButton>
+                </Box>
+              ))}
+
+              <Button onClick={addRule} variant="outlined" size="small">+ Add rule</Button>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
   );
 };
 
-export default Sidebar;
+const DataCleansingTable: React.FC = () => {
+  const [data, setData] = useState<RowData[]>(initialData);
 
-style
-// src/components/SidebarStyles.ts
-import styled from "styled-components";
-import { List, ListItem, ListItemText } from "@mui/material";
-
-export const SidebarContainer = styled.div`
-  width: 250px;
-  height: 100vh;
-  background: #f5f5f5;
-  padding: 10px;
-  border-right: 2px solid #ddd;
-`;
-
-export const StyledList = styled(List)`
-  padding: 0;
-`;
-
-export const StyledListItem = styled(ListItem)<{ selected: boolean }>`
-  border-left: ${(props) => (props.selected ? "4px solid #1976d2" : "none")};
-  background: ${(props) =>
-    props.selected ? "#e3f2fd" : "transparent"} !important;
-  cursor: pointer;
-  transition: 0.3s;
-`;
-
-export const StyledSubMenuItem = styled(ListItem)<{ status: string }>`
-  background: ${(props) =>
-    props.status === "in-progress"
-      ? "#bbdefb"
-      : props.status === "completed"
-      ? "#c8e6c9"
-      : "transparent"} !important;
-  cursor: ${(props) => (props.status === "pending" ? "not-allowed" : "pointer")};
-  opacity: ${(props) => (props.status === "pending" ? "0.5" : "1")};
-  transition: 0.3s;
-`;
-
-
-/// sidebar old 
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { List, ListItemText, Collapse } from '@mui/material';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import { SidebarContainer, StyledListItem, SubMenu } from './SidebarStyles';
-import { navigationSteps, Step } from './navigationData';
-
-const Sidebar: React.FC = () => {
-  const [openStep, setOpenStep] = useState<string | null>(null);
-  const [selectedStep, setSelectedStep] = useState<string | null>(null);
-  const navigate = useNavigate();
-
-  const handleStepClick = (step: Step) => {
-    setSelectedStep(step.label);
-    navigate(step.path);
-    if (step.subSteps) {
-      setOpenStep(openStep === step.label ? null : step.label);
-    }
+  const updateRules = (rowIndex: number, rules: Rule[]) => {
+    const newData = [...data];
+    newData[rowIndex].rules = rules;
+    setData(newData);
   };
 
   return (
-    <SidebarContainer>
-      <List>
-        {navigationSteps.map((step) => (
-          <React.Fragment key={step.label}>
-            <StyledListItem active={selectedStep === step.label} onClick={() => handleStepClick(step)}>
-              <ListItemText primary={step.label} />
-              {step.subSteps && (openStep === step.label ? <ExpandLess /> : <ExpandMore />)}
-            </StyledListItem>
-            {step.subSteps && (
-              <Collapse in={openStep === step.label} timeout="auto" unmountOnExit>
-                <List disablePadding>
-                  {step.subSteps.map((subStep) => (
-                    <StyledListItem
-                      key={subStep.label}
-                      active={selectedStep === subStep.label}
-                      onClick={() => {
-                        setSelectedStep(subStep.label);
-                        navigate(subStep.path);
-                      }}
-                    >
-                      <SubMenu>{subStep.label}</SubMenu>
-                    </StyledListItem>
-                  ))}
-                </List>
-              </Collapse>
-            )}
-          </React.Fragment>
-        ))}
-      </List>
-    </SidebarContainer>
+    <Container>
+      <Typography variant="h6" gutterBottom>Data Cleansing Table</Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Target Field Name</TableCell>
+              <TableCell>Mapping Method</TableCell>
+              <TableCell>Required</TableCell>
+              <TableCell>Data Cleansing Rules</TableCell>
+              <TableCell />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {data.map((row, idx) => (
+              <CollapsibleRow
+                key={idx}
+                row={row}
+                index={idx}
+                updateRules={updateRules}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Container>
   );
 };
 
-export default Sidebar;
-
-
-test cases
-
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { BrowserRouter as Router } from 'react-router-dom';
-import Sidebar from '../Sidebar';
-import { navigationSteps } from '../navigationData';
-
-describe('Sidebar Navigation', () => {
-  test('renders all main menu items', () => {
-    render(
-      <Router>
-        <Sidebar />
-      </Router>
-    );
-
-    // Check if all main menu items exist
-    navigationSteps.forEach((step) => {
-      expect(screen.getByText(step.label)).toBeInTheDocument();
-    });
-  });
-
-  test('expands and collapses submenu on click', () => {
-    render(
-      <Router>
-        <Sidebar />
-      </Router>
-    );
-
-    // Find Data Setup menu item
-    const dataSetupItem = screen.getByText('Data setup');
-    expect(dataSetupItem).toBeInTheDocument();
-
-    // Click to expand submenu
-    fireEvent.click(dataSetupItem);
-
-    // Check if submenus appear
-    navigationSteps[1].subSteps?.forEach((subStep) => {
-      expect(screen.getByText(subStep.label)).toBeInTheDocument();
-    });
-
-    // Click again to collapse submenu
-    fireEvent.click(dataSetupItem);
-
-    navigationSteps[1].subSteps?.forEach((subStep) => {
-      expect(screen.queryByText(subStep.label)).not.toBeInTheDocument();
-    });
-  });
-
-  test('navigates to correct route when menu item is clicked', () => {
-    render(
-      <Router>
-        <Sidebar />
-      </Router>
-    );
-
-    // Find and click "Transaction Information"
-    const transactionInfoItem = screen.getByText('Transaction Information');
-    fireEvent.click(transactionInfoItem);
-
-    // Check if it's highlighted (active)
-    expect(transactionInfoItem).toHaveStyle('background-color: #e0e7ff');
-
-    // Find and click "Key Metrics Configuration"
-    const keyMetricsItem = screen.getByText('Key metrics configuration');
-    fireEvent.click(keyMetricsItem);
-
-    // Check if it's highlighted (active)
-    expect(keyMetricsItem).toHaveStyle('background-color: #e0e7ff');
-  });
-
-  test('only one menu item is highlighted at a time', () => {
-    render(
-      <Router>
-        <Sidebar />
-      </Router>
-    );
-
-    // Click "Transaction Information"
-    const transactionInfoItem = screen.getByText('Transaction Information');
-    fireEvent.click(transactionInfoItem);
-
-    // Click "Key Metrics Configuration"
-    const keyMetricsItem = screen.getByText('Key metrics configuration');
-    fireEvent.click(keyMetricsItem);
-
-    // Ensure only "Key Metrics Configuration" is active
-    expect(keyMetricsItem).toHaveStyle('background-color: #e0e7ff');
-    expect(transactionInfoItem).not.toHaveStyle('background-color: #e0e7ff');
-  });
-});
-
+export default DataCleansingTable;
