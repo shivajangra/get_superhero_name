@@ -1,181 +1,92 @@
-import React, { useState } from 'react';
-import {
-  Box, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Paper, Checkbox, IconButton, Collapse, MenuItem, TextField, Button, Typography
-} from '@mui/material';
-import { styled } from 'styled-components';
-import { ExpandLess, ExpandMore, Delete } from '@mui/icons-material';
-
-interface Rule {
-  type: string;
-  value1?: string;
-  value2?: string;
-}
-
-interface RowData {
-  field: string;
-  method: string;
-  required: boolean;
-  rules: Rule[];
-}
-
-const initialData: RowData[] = [
-  { field: 'Loan_ID', method: 'Text', required: true, rules: [] },
-  { field: 'Group_Loan_ID', method: 'Text', required: true, rules: [] },
-  { field: 'Loan_Securitised_ID', method: 'Text', required: true, rules: [] }
-];
-
-const ruleTypes = ['Change case', 'Find and replace', 'Find and remove'];
-
-const Container = styled(Box)`
-  padding: 24px;
-`;
-
-const CollapsibleRow = ({
-  row,
-  index,
-  updateRules
-}: {
-  row: RowData;
-  index: number;
-  updateRules: (index: number, rules: Rule[]) => void;
-}) => {
-  const [open, setOpen] = useState(false);
-
-  const handleRuleChange = (ruleIndex: number, field: keyof Rule, value: string) => {
-    const newRules = [...row.rules];
-    newRules[ruleIndex][field] = value;
-    updateRules(index, newRules);
-  };
-
-  const addRule = () => {
-    updateRules(index, [...row.rules, { type: '', value1: '', value2: '' }]);
-  };
-
-  const deleteRule = (ruleIndex: number) => {
-    const newRules = row.rules.filter((_, i) => i !== ruleIndex);
-    updateRules(index, newRules);
-  };
-
-  return (
-    <>
-      <TableRow>
-        <TableCell>{row.field}</TableCell>
-        <TableCell>{row.method}</TableCell>
-        <TableCell><Checkbox checked={row.required} disabled /></TableCell>
-        <TableCell>
-          {row.rules.map(r => r.type).join('; ') || '-'}
-        </TableCell>
-        <TableCell>
-          <IconButton onClick={() => setOpen(!open)}>
-            {open ? <ExpandLess /> : <ExpandMore />}
-          </IconButton>
-        </TableCell>
-      </TableRow>
-
-      <TableRow>
-        <TableCell colSpan={5} style={{ padding: 0 }}>
-          <Collapse in={open} timeout="auto" unmountOnExit>
-            <Box padding={2} display="flex" flexDirection="column" gap={2}>
-              {row.rules.map((rule, rIdx) => (
-                <Box key={rIdx} display="flex" gap={2} alignItems="center">
-                  <TextField
-                    select
-                    label="Rule Type"
-                    value={rule.type}
-                    onChange={(e) => handleRuleChange(rIdx, 'type', e.target.value)}
-                    size="small"
-                    sx={{ width: '200px' }}
-                  >
-                    {ruleTypes.map((type) => (
-                      <MenuItem key={type} value={type}>{type}</MenuItem>
-                    ))}
-                  </TextField>
-
-                  {(rule.type === 'Find and replace' || rule.type === 'Find and remove') && (
-                    <TextField
-                      label="Find"
-                      value={rule.value1}
-                      onChange={(e) => handleRuleChange(rIdx, 'value1', e.target.value)}
-                      size="small"
-                    />
-                  )}
-
-                  {rule.type === 'Find and replace' && (
-                    <TextField
-                      label="Replace"
-                      value={rule.value2}
-                      onChange={(e) => handleRuleChange(rIdx, 'value2', e.target.value)}
-                      size="small"
-                    />
-                  )}
-
-                  {rule.type === 'Change case' && (
-                    <TextField
-                      select
-                      label="Case"
-                      value={rule.value1 || 'Uppercase'}
-                      onChange={(e) => handleRuleChange(rIdx, 'value1', e.target.value)}
-                      size="small"
-                      sx={{ width: '150px' }}
-                    >
-                      <MenuItem value="Uppercase">Uppercase</MenuItem>
-                      <MenuItem value="Lowercase">Lowercase</MenuItem>
-                    </TextField>
-                  )}
-
-                  <IconButton onClick={() => deleteRule(rIdx)}>
-                    <Delete />
-                  </IconButton>
-                </Box>
-              ))}
-
-              <Button onClick={addRule} variant="outlined" size="small">+ Add rule</Button>
-            </Box>
-          </Collapse>
-        </TableCell>
-      </TableRow>
-    </>
-  );
+type MappingConfig = {
+  upfFieldId: number;
+  [key: string]: any;
 };
 
-const DataCleansingTable: React.FC = () => {
-  const [data, setData] = useState<RowData[]>(initialData);
-
-  const updateRules = (rowIndex: number, rules: Rule[]) => {
-    const newData = [...data];
-    newData[rowIndex].rules = rules;
-    setData(newData);
-  };
-
-  return (
-    <Container>
-      <Typography variant="h6" gutterBottom>Data Cleansing Table</Typography>
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Target Field Name</TableCell>
-              <TableCell>Mapping Method</TableCell>
-              <TableCell>Required</TableCell>
-              <TableCell>Data Cleansing Rules</TableCell>
-              <TableCell />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.map((row, idx) => (
-              <CollapsibleRow
-                key={idx}
-                row={row}
-                index={idx}
-                updateRules={updateRules}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Container>
-  );
+type CleansingInstruction = {
+  CleansingData: string;
+  upfFieldId: number;
+  upfFieldName: string;
 };
 
-export default DataCleansingTable;
+type CleansingRule = {
+  CleansingRuleName: string;
+  CleansingInstructions: CleansingInstruction[];
+};
+
+const transformCleansingData = (
+  fieldCleansingRules: CleansingRule[],
+  mappingConfig: MappingConfig[]
+) => {
+  const result: Record<number, any> = {};
+
+  fieldCleansingRules.forEach(rule => {
+    if (rule.CleansingInstructions.length === 0) return;
+
+    rule.CleansingInstructions.forEach(instr => {
+      const parsedData = JSON.parse(instr.CleansingData);
+      const existing = result[instr.upfFieldId];
+
+      if (!existing) {
+        const matchedMapping = mappingConfig.find(
+          m => m.upfFieldId === instr.upfFieldId
+        );
+
+        result[instr.upfFieldId] = {
+          upfFieldId: instr.upfFieldId,
+          upfFieldName: instr.upfFieldName,
+          CleansingRuleName: rule.CleansingRuleName,
+          cleansingData: [parsedData],
+          ...(matchedMapping || {})
+        };
+      } else {
+        existing.cleansingData.push(parsedData);
+      }
+    });
+  });
+
+  return Object.values(result);
+};
+
+const transformedData = transformCleansingData(fieldCleansingRules, mappingConfig);
+console.log(transformedData);
+
+-----
+type TransformedItem = {
+  upfFieldId: number;
+  upfFieldName: string;
+  CleansingRuleName: string;
+  cleansingData: Array<Record<string, any>>;
+  [key: string]: any;
+};
+
+const reverseTransform = (transformed: TransformedItem[]) => {
+  const ruleMap: Record<string, CleansingInstruction[]> = {};
+
+  transformed.forEach(item => {
+    const ruleName = item.CleansingRuleName;
+
+    if (!ruleMap[ruleName]) {
+      ruleMap[ruleName] = [];
+    }
+
+    const instructions = item.cleansingData.map(cd => ({
+      CleansingData: JSON.stringify(cd),
+      upfFieldId: item.upfFieldId,
+      upfFieldName: item.upfFieldName
+    }));
+
+    ruleMap[ruleName].push(...instructions);
+  });
+
+  const reversed = Object.entries(ruleMap).map(([ruleName, instructions]) => ({
+    CleansingRuleName: ruleName,
+    CleansingInstructions: instructions
+  }));
+
+  return reversed;
+};
+
+// Example usage
+const reversedRules = reverseTransform(transformedData);
+console.log(reversedRules);
