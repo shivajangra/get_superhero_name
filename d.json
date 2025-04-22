@@ -1,0 +1,170 @@
+{
+    "dataIngestionId": "88",
+    "loanHeaderId": "333",
+    "dataIngestionName": "Data Ingestion - Loader 123 - Feb 2025 - #4",
+    "dataIngestionStatus": "SUCCEEDED",
+    "dataIngestionStartDatetime": "2/26/2025 10:01:02 AM",
+    "dataIngestionEndDatetime": "2/26/2025 10:04:06 AM",
+    "dataIngestionSteps": [
+      {
+        "dataIngestionStepId": "512",
+        "dataIngestionId": "88",
+        "shortDesc": "File-Cleaning",
+        "stepDescription": "File Level Cleaning",
+        "stepStatus": "SUCCEEDED",
+        "stepStartDatetime": "2/26/2025 10:01",
+        "stepEndDatetime": "2/26/2025 10:01:05 AM",
+        "dataIngestionLogs": [
+          {
+            "dataIngestionStepLogid": 2344,
+            "dataIngestionStepId": 512,
+            "logDescription": "Open pool file \"my_pool_2025.xlsx\"",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:02:123 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2345,
+            "dataIngestionStepId": 512,
+            "logDescription": "Convert file to CSV",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:03:124 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2346,
+            "dataIngestionStepId": 512,
+            "logDescription": "Delete rows 2-4 and 5-7",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:04:125 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2347,
+            "dataIngestionStepId": 512,
+            "logDescription": "Delete 9 empty lines",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:128 AM"
+          }
+        ]
+      },
+      {
+        "dataIngestionStepId": "513",
+        "dataIngestionId": "88",
+        "shortDesc": "Field-Cleaning",
+        "stepDescription": "Field-by-field Cleansing",
+        "stepStatus": "SUCCEEDED",
+        "stepStartDatetime": "2/26/2025 10:01",
+        "stepEndDatetime": "2/26/2025 10:02:30 AM",
+        "dataIngestionLogs": [
+          {
+            "dataIngestionStepLogid": 2348,
+            "dataIngestionStepId": 513,
+            "logDescription": "Standardize Loan_Type lookup key/values - 20 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:438 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2349,
+            "dataIngestionStepId": 513,
+            "logDescription": "Standardize Payment_Frequency lookup key/values - 19 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:445 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2350,
+            "dataIngestionStepId": 513,
+            "logDescription": "Standardize Property_Type lookup key/values - 16 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:446 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2351,
+            "dataIngestionStepId": 513,
+            "logDescription": "Reformat date field Maturity_Date to DD/MM/YYYY - 20 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:449 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2352,
+            "dataIngestionStepId": 513,
+            "logDescription": "Replace string in Days_In_Arrears all occurrence of \"31 - 60\" by \"60\" - 0 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:01:05:455 AM"
+          }
+        ]
+      },
+      {
+        "dataIngestionStepId": "514",
+        "dataIngestionId": "88",
+        "shortDesc": "UPF-Mapping",
+        "stepDescription": "Data Mapping to Unified Pool Format",
+        "stepStatus": "SUCCEEDED",
+        "stepStartDatetime": "2/26/2025 10:02",
+        "stepEndDatetime": "2/26/2025 10:02:32 AM",
+        "dataIngestionLogs": [
+          {
+            "dataIngestionStepLogid": 2353,
+            "dataIngestionStepId": 514,
+            "logDescription": "Convert 26 columns to Unified Pool Format as per mapping configuration",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:02:31:887 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2354,
+            "dataIngestionStepId": 514,
+            "logDescription": "Removed 49 unmapped columns",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:02:32:187 AM"
+          }
+        ]
+      },
+      {
+        "dataIngestionStepId": "515",
+        "dataIngestionId": "88",
+        "shortDesc": "DQ-Validation",
+        "stepDescription": "Data Quality Validation",
+        "stepStatus": "SUCCEEDED",
+        "stepStartDatetime": "2/26/2025 10:02",
+        "stepEndDatetime": "2/26/2025 10:03:52 AM",
+        "dataIngestionLogs": [
+          {
+            "dataIngestionStepLogid": 2355,
+            "dataIngestionStepId": 515,
+            "logDescription": "Successfully validate data - 13 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:02:32:987 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2356,
+            "dataIngestionStepId": 515,
+            "logDescription": "Fail to validate data - 7 records",
+            "logStatus": "warning",
+            "logDatetime": "2/26/2025  10:03:52:198 AM"
+          }
+        ]
+      },
+      {
+        "dataIngestionStepId": "516",
+        "dataIngestionId": "88",
+        "shortDesc": "Data-Upload",
+        "stepDescription": "Data Processing & Upload",
+        "stepStatus": "SUCCEEDED",
+        "stepStartDatetime": "2/26/2025 10:03",
+        "stepEndDatetime": "2/26/2025 10:04:06 AM",
+        "dataIngestionLogs": [
+          {
+            "dataIngestionStepLogid": 2357,
+            "dataIngestionStepId": 516,
+            "logDescription": "Upload valid data - 13 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:03:59:221 AM"
+          },
+          {
+            "dataIngestionStepLogid": 2358,
+            "dataIngestionStepId": 516,
+            "logDescription": "Upload invalid data - 7 records",
+            "logStatus": "success",
+            "logDatetime": "2/26/2025  10:04:06:002 AM"
+          }
+        ]
+      }
+    ]
+  }
