@@ -1,92 +1,159 @@
-type MappingConfig = {
-  upfFieldId: number;
-  [key: string]: any;
-};
+import {useState} from "react";
+import {
+  Box,
+  Typography,
+  Breadcrumbs,
+  Link,
+  Paper,
+  Alert,
+  AlertTitle,
+  Card, CardHeader, CardContent, Avatar
+} from "@mui/material";
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HomeIcon from "@mui/icons-material/Home";
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import IngestionData from './data-ingestion.json';
 
-type CleansingInstruction = {
-  CleansingData: string;
-  upfFieldId: number;
-  upfFieldName: string;
-};
+interface LogsData {
+  logDatetime: string;
+  logDescription: string;
+  dataIngestionStepLogid: number;
+  logStatus: string;
+}
 
-type CleansingRule = {
-  CleansingRuleName: string;
-  CleansingInstructions: CleansingInstruction[];
-};
+interface StepsData {
+  dataIngestionLogs : LogsData[];
+  shortDesc: string;
+  stepDescription : string;
+  stepEndDatetime: string;
+  stepStatus: string;
+}
 
-const transformCleansingData = (
-  fieldCleansingRules: CleansingRule[],
-  mappingConfig: MappingConfig[]
-) => {
-  const result: Record<number, any> = {};
+export default function NewTransaction() {
+    const [selectedStepLog, setSelectedStepLog] = useState<LogsData[]>(IngestionData["dataIngestionSteps"][0]["dataIngestionLogs"]);
+    const [steps, setSteps] = useState<StepsData[]>(IngestionData["dataIngestionSteps"]);
+    const [visible, setVisible] = useState(true);
 
-  fieldCleansingRules.forEach(rule => {
-    if (rule.CleansingInstructions.length === 0) return;
+  return (
+    <Box pl={10} pr={10} mt={2}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs separator="›" aria-label="breadcrumb">
+        <Link
+          underline="hover"
+          sx={{ display: "flex", alignItems: "center" }}
+          color="inherit"
+          href="/"
+        >
+          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+          Securitisation
+        </Link>
+        <Typography
+          sx={{ color: "text.primary", display: "flex", alignItems: "center" }}
+        >
+          ABC Investments Securitisation 2025-1
+        </Typography>
+      </Breadcrumbs>
 
-    rule.CleansingInstructions.forEach(instr => {
-      const parsedData = JSON.parse(instr.CleansingData);
-      const existing = result[instr.upfFieldId];
+      <Box mt={2}>
 
-      if (!existing) {
-        const matchedMapping = mappingConfig.find(
-          m => m.upfFieldId === instr.upfFieldId
-        );
+        <Typography variant="h4">Data ingestion report</Typography>
 
-        result[instr.upfFieldId] = {
-          upfFieldId: instr.upfFieldId,
-          upfFieldName: instr.upfFieldName,
-          CleansingRuleName: rule.CleansingRuleName,
-          cleansingData: [parsedData],
-          ...(matchedMapping || {})
-        };
-      } else {
-        existing.cleansingData.push(parsedData);
-      }
-    });
-  });
+        <Box mt={2}>
+          <Paper sx={{ padding: "20px" }}>
+            {/* heading and hide details  */}
+            <Box display="flex" justifyContent={"space-between"}>
+                <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>
+                Automated Data Ingestion Logs
+                </Typography>
+                <Typography variant="h6" sx={{ cursor:"pointer", fontSize:"12px"}} onClick={() => setVisible(!visible)}>{visible ? 'Hide' : 'Show'} details</Typography>
+            </Box>
+            <Alert severity="info" sx={{ mt:1, borderRadius:"15px", pt:1}}>
+                <AlertTitle>Overview</AlertTitle>
+                The file has been successfully converted to the Pool Unified Format and uploaded to the database.
+            </Alert>
 
-  return Object.values(result);
-};
-
-const transformedData = transformCleansingData(fieldCleansingRules, mappingConfig);
-console.log(transformedData);
-
------
-type TransformedItem = {
-  upfFieldId: number;
-  upfFieldName: string;
-  CleansingRuleName: string;
-  cleansingData: Array<Record<string, any>>;
-  [key: string]: any;
-};
-
-const reverseTransform = (transformed: TransformedItem[]) => {
-  const ruleMap: Record<string, CleansingInstruction[]> = {};
-
-  transformed.forEach(item => {
-    const ruleName = item.CleansingRuleName;
-
-    if (!ruleMap[ruleName]) {
-      ruleMap[ruleName] = [];
-    }
-
-    const instructions = item.cleansingData.map(cd => ({
-      CleansingData: JSON.stringify(cd),
-      upfFieldId: item.upfFieldId,
-      upfFieldName: item.upfFieldName
-    }));
-
-    ruleMap[ruleName].push(...instructions);
-  });
-
-  const reversed = Object.entries(ruleMap).map(([ruleName, instructions]) => ({
-    CleansingRuleName: ruleName,
-    CleansingInstructions: instructions
-  }));
-
-  return reversed;
-};
-
-// Example usage
-const reversedRules = reverseTransform(transformedData);
-console.log(reversedRules);
+            {/* detail cards */}
+            {visible && 
+            <Box sx={{ mt:2,
+                width:"100%",
+                display:"flex", whiteSpace: "nowrap", 
+                gridTemplateColumns:'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', 
+                gap:2, overflowX:"auto"}}>
+                {steps.map((step,i) =>
+                <Card  key={i} sx={{ cursor:"pointer",
+                     minWidth:345, p:1, boxShadow:3,
+                     backgroundColor: selectedStepLog === step.dataIngestionLogs ? "#8080801c" : "#8080800a",
+                     "&:hover": {backgroundColor: "#f5f5f5"}
+                    }}
+                onClick={() => setSelectedStepLog(step.dataIngestionLogs)}
+                >
+                    <CardHeader
+                        avatar={<Avatar src="" alt="A"/>}
+                        title={step.shortDesc}
+                        subheader={step.stepDescription}
+                    />
+                    <CardContent>
+                        <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2">Step Time</Typography>
+                        <Typography variant="body2">{step.stepEndDatetime}</Typography>
+                        </Box>
+                        <Box display="flex" justifyContent="space-between">
+                        <Typography variant="body2">Status</Typography>
+                        <Typography variant="body2">{step.stepStatus}</Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
+                )}
+                
+            </Box>
+            }
+            {visible && 
+            <Alert severity="info" sx={{ mt:1, borderRadius:"15px", pt:1}}>
+                <AlertTitle>File level cleansing details</AlertTitle>
+                The file has been processed with the following actions: Merged two sheets, Removed the First three lines,
+                 Deleted seven empty lines, Removed the last line.
+            </Alert>
+            }
+            {visible &&
+            <TableContainer component={Paper} sx={{mt:2}}>
+                <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                    <TableHead>
+                    <TableRow>
+                        <TableCell align="center">Time Stamp</TableCell>
+                        <TableCell align="center">Description</TableCell>
+                        <TableCell align="center">Action Log ID</TableCell>
+                        <TableCell align="center">Status</TableCell>
+                    </TableRow>
+                    </TableHead>
+                    <TableBody>
+                    {selectedStepLog.map((log,i) => (
+                        <TableRow key={i}>
+                        <TableCell align="center">{log.logDatetime}</TableCell>
+                        <TableCell align="center">{log.logDescription}</TableCell>
+                        <TableCell align="center">{log.dataIngestionStepLogid}</TableCell>
+                        <TableCell align="center">
+                        {log.logStatus == 'success'?
+                            (<Box display="flex" sx={{color: "green"}}>
+                                <CheckCircleIcon></CheckCircleIcon>
+                                <Typography variant="body1">{log.logStatus}</Typography>
+                                </Box>)
+                        :   (<span> {log.logStatus}</span>)  
+                        }
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+                </TableContainer>
+              }
+          </Paper>
+        </Box>
+      </Box>
+    </Box>
+  );
+}
