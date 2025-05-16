@@ -1,81 +1,92 @@
-import {useState} from "react";
-import {
-  Box,
-  Typography,
-  Breadcrumbs,
-  Link,
-  Paper,
-  Alert,
-  AlertTitle,
-  Card, CardHeader, CardContent, Avatar
-} from "@mui/material";
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HomeIcon from "@mui/icons-material/Home";
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import IngestionData from './data-ingestion.json';
+import { act } from '@testing-library/react';
+import { jest } from '@jest/globals';
 
-interface LogsData {
-  logDatetime: string;
-  logDescription: string;
-  dataIngestionStepLogid: number;
-  logStatus: string;
-}
+// Mock setter functions
+const setLoading = jest.fn();
+const setLoadingFalse = () => setLoading(false);
+const setLoadingTrue = () => setLoading(true);
+const checkForNextCall = jest.fn();
+const fetchGlueJobStatusDetail = jest.fn();
 
-interface StepsData {
-  dataIngestionLogs : LogsData[];
-  shortDesc: string;
-  stepDescription : string;
-  stepEndDatetime: string;
-  stepStatus: string;
-}
+// Simulated glue job input
+const glueJobMock = {
+  transactionId: 123,
+  loanHeaderId: 456,
+  jobRunId: 'job-789',
+};
 
-export default function NewTransaction() {
-    const [selectedStepLog, setSelectedStepLog] = useState<LogsData[]>(IngestionData["dataIngestionSteps"][0]["dataIngestionLogs"]);
-    const [steps, setSteps] = useState<StepsData[]>(IngestionData["dataIngestionSteps"]);
-    const [visible, setVisible] = useState(true);
+// Rewriting the glueJobStatusPolling function inside the test
+const glueJobStatusPolling = (glueJob: typeof glueJobMock) => {
+  let interval: NodeJS.Timeout;
 
-  return (
-    <Box pl={10} pr={10} mt={2}>
-      {/* Breadcrumbs */}
-      <Breadcrumbs separator="›" aria-label="breadcrumb">
-        <Link
-          underline="hover"
-          sx={{ display: "flex", alignItems: "center" }}
-          color="inherit"
-          href="/"
-        >
-          <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
-          Securitisation
-        </Link>
-        <Typography
-          sx={{ color: "text.primary", display: "flex", alignItems: "center" }}
-        >
-          ABC Investments Securitisation 2025-1
-        </Typography>
-      </Breadcrumbs>
+  const fetchGlueJobStatus = async () => {
+    try {
+      setLoadingTrue();
+      const { data } = await fetchGlueJobStatusDetail({
+        variables: {
+          transactionId: glueJob.transactionId,
+          loanHeaderId: glueJob.loanHeaderId,
+          jobName: 'DATA_INGESTION',
+          jobRunId: glueJob.jobRunId,
+        },
+      });
+      checkForNextCall(data, interval);
+    } catch (error) {
+      clearInterval(interval);
+      setLoadingFalse();
+    }
+  };
 
-      <Box mt={2}>
+  fetchGlueJobStatus();
+  interval = setInterval(fetchGlueJobStatus, 5000); // arbitrary polling time
+};
 
-        <Typography variant="h4">Data ingestion report</Typography>
+describe('glueJobStatusPolling', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+  });
 
-        <Box mt={2}>
-          <Paper sx={{ padding: "20px" }}>
-            {/* heading and hide details  */}
-            <Box display="flex" justifyContent={"space-between"}>
-                <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>
-                Automated Data Ingestion Logs
-                </Typography>
-                <Typography variant="h6" sx={{ cursor:"pointer", fontSize:"12px"}} onClick={() => setVisible(!visible)}>{visible ? 'Hide' : 'Show'} details</Typography>
-            </Box>
-            <Alert severity="info" sx={{ mt:1, borderRadius:"15px", pt:1}}>
-                <AlertTitle>Overview</AlertTitle>
-                The file has been successfully converted to the Pool Unified Format and uploaded to the database.
-            </Alert>
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should fetch job status and call checkForNextCall', async () => {
+    fetchGlueJobStatusDetail.mockResolvedValue({ data: { some: 'result' } });
+
+    await act(async () => {
+      glueJobStatusPolling(glueJobMock);
+    });
+
+    expect(setLoading).toHaveBeenCalledWith(true);
+    expect(fetchGlueJobStatusDetail).toHaveBeenCalledTimes(1);
+    expect(checkForNextCall).toHaveBeenCalledWith({ some: 'result' }, expect.anything());
+
+    // Fast forward timers and verify polling
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+    });
+
+    expect(fetchGlueJobStatusDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('should handle error and stop polling', async () => {
+    fetchGlueJobStatusDetail.mockRejectedValue(new Error('Failed'));
+
+    await act(async () => {
+      glueJobStatusPolling(glueJobMock);
+    });
+
+    expect(setLoading).toHaveBeenCalledWith(true);
+    expect(setLoading).toHaveBeenCalledWith(false);
+    expect(checkForNextCall).not.toHaveBeenCalled();
+  });
+});
+
+
+
+    
+      
 
             {/* detail cards */}
             {visible && 
