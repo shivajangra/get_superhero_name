@@ -1,0 +1,529 @@
+import {
+    Box,
+    Typography,
+    Breadcrumbs,
+    Link,
+    Paper,
+    TextField,
+    MenuItem,
+    Select,
+    InputLabel,
+    FormControl,
+    Button,
+    Alert,
+} from "@mui/material";
+import Grid from "@mui/material/Grid2";
+import HomeIcon from "@mui/icons-material/Home";
+import { useFormik } from "formik";
+import { SelectChangeEvent } from "@mui/material/Select";
+import { useState } from "react";
+import QueryBuilder, { FilterField } from "../queryBuilder/QueryBuilder";
+
+const thresholdOptions: number[] = [10,20,30,40,50,60,70,80,90,100];
+const AggregationOptions: string[] = ["SUM","AVG","MAX","COUNT",];
+const whenToExecuteOptions: string[] = ["All condition are met"];
+const targetOptions: FilterField[] = [
+{value:"Loan_Id", label:"Loan_Id"},
+{value:"Group_Loan_ID", label:"Group_Loan_ID"},
+{value:"Loan_Type", label:"Loan_Type"},
+{value:"Payment_Frequency", label:"Payment_Frequency"},
+{value:"Loan_Currency", label:"Loan_Currency"},
+{value:"Settlement_Date", label:"Settlement_Date"},
+{value:"Maturity_Date", label:"Maturity_Date"},
+{value:"Current_Balance", label:"Current_Balance"},
+{value:"Interest_Rate", label:"Interest_Rate"},
+{value:"Original_Balance", label:"Original_Balance"},
+{value:"Original_Property_Value", label:"Original_Property_Value"},
+{value:"Most_Recent_Property_Value", label:"Most_Recent_Property_Value"},
+{value:"Current_LTV", label:"Current_LTV"},
+{value:"Original_LTV", label:"Original_LTV"},
+{value:"Loan_Term", label:"Loan_Term"},
+{value:"Remaining_Term", label:"Remaining_Term"},
+{value:"Days_In_Arrears", label:"Days_In_Arrears"},
+{value:"Amount_In_Arrears", label:"Amount_In_Arrears"},
+{value:"Property_Postcode", label:"Property_Postcode"},
+{value:"Property_Type", label:"Property_Type"},
+{value:"Primary_Borrower_Methodology", label:"Primary_Borrower_Methodology"},
+{value:"Primary_Borrower_Income", label:"Primary_Borrower_Income"},
+{value:"Nonprimary_Borrower_Income", label:"Nonprimary_Borrower_Income"},
+{value:"Income_Verification", label:"Income_Verification"},
+{value:"Credit_Score", label:"Credit_Score"},
+{value:"Property_Purpose", label: "Property_Purpose"}
+]
+const currencyOptions: string[] = ["USD", "EUR", "GBP", "INR"];
+export default function NewTransaction() {
+
+    const [description, setDescription] = useState("");
+    const [query, setQuery] = useState<any>([]);
+    const maxChar = 40;
+    const formik = useFormik({
+        initialValues: {
+            metricType: "custom",
+            metricName: "",
+            warningThreshold: "80",
+            whentoexecute: "",
+            aggregationMethod: "",
+            targetFields: "",
+            maxLimit: 0,
+            description: "",
+            query:query,
+            currency: "",
+            review: "",
+        },
+        onSubmit: (values) => {
+            console.log("Form Data:", values);
+        },
+    });
+
+    const [maxlimit, setMaxlimit] = useState(0);
+
+    const handleMaxLimit = (e:any) => {
+        if(/^\d*$/.test(e.target.value)) {
+            setMaxlimit(e.target.value);
+            formik.setFieldValue(
+                "maxLimit",
+                e.target.value
+            )
+        }
+    }
+
+    return (
+        <Box pl={8} pr={8} mt={2}>
+            {/* Breadcrumbs */}
+            <Breadcrumbs separator="›" aria-label="breadcrumb">
+                <Link
+                    underline="hover"
+                    sx={{ display: "flex", alignItems: "center" }}
+                    color="inherit"
+                    href="/"
+                >
+                    <HomeIcon sx={{ mr: 0.5 }} fontSize="inherit" />
+                    Securitisation
+                </Link>
+                <Link
+                    underline="hover"
+                    sx={{ display: "flex", alignItems: "center" }}
+                    color="inherit"
+                    href="#"
+                >
+                    List of transactions
+                </Link>
+                <Link
+                    underline="hover"
+                    sx={{ display: "flex", alignItems: "center" }}
+                    color="inherit"
+                    href="#"
+                >
+                    ABC Investments Securitisation 2025-1
+                </Link>
+                <Link
+                    underline="hover"
+                    sx={{ display: "flex", alignItems: "center" }}
+                    color="inherit"
+                    href="#"
+                >
+                    Key metrics
+                </Link>
+                <Typography
+                    sx={{ color: "text.primary", display: "flex", alignItems: "center" }}
+                >
+                    Add new metric
+                </Typography>
+            </Breadcrumbs>
+
+            <Box mt={2}>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                    <Typography variant="h4">Add New Metric</Typography>
+                    <Button sx={{ backgroundColor: "#222020" }} type="button" variant="contained">Back</Button>
+                </Box>
+                <form onSubmit={formik.handleSubmit} style={{ width: "100%" }}>
+                {/* First section - Metric Add */}
+                <Box mt={2}>
+                    <Paper sx={{ padding: "20px" }}>
+                        <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>
+                            Metric Details
+                        </Typography>
+                        <Grid container sx={{ width: "100%" }} spacing={2}>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }} mt={2}>
+                                <Alert severity="info" sx={{ mt: 1, borderRadius: "15px", pt: 1 }}>
+                                    Before you start, make sure you read the description!
+                                </Alert>
+                            </Grid>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }}>
+                                    <Grid container spacing={2} sx={{ width: "100%" }}>
+                                        <Grid sx={{ padding: 2, width: "100%" }}>
+                                            {/* Metric Type */}
+                                            <TextField
+                                                id="metric-type"
+                                                name="metricType"
+                                                label="Mertic Type"
+                                                defaultValue={"Custom"}
+                                                variant="standard"
+                                                slotProps={{ input: { readOnly: true } }}
+                                            />
+                                            {/* Metric Name */}
+                                            <Box mt={2}>
+                                                <TextField
+                                                    fullWidth
+                                                    id="metric-name"
+                                                    name="metricName"
+                                                    label="Mertic Name"
+                                                    value={formik.values.metricName}
+                                                    onChange={formik.handleChange}
+                                                    variant="outlined"
+                                                />
+                                            </Box>
+
+                                            {/* Description */}
+                                            <Box mt={2}>
+                                                <TextField
+                                                    fullWidth
+                                                    multiline
+                                                    id="description"
+                                                    name="description"
+                                                    label="Description"
+                                                    variant="outlined"
+                                                    rows={2}
+                                                    value={formik.values.description}
+                                                    onChange={(e) => {setDescription(e.target.value), formik.setFieldValue("description",e.target.value)}}
+                                                    helperText={`${description.length}/${maxChar} max characters`}
+                                                    slotProps={{ htmlInput: { maxLength: maxChar } }}
+                                                />
+                                            </Box>
+
+                                        </Grid>
+                                    </Grid>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Box>
+                {/* Second section - Metric Add */}
+                <Box mt={2}>
+                    <Paper sx={{ padding: "20px" }}>
+                        <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>
+                            Setup Calculation
+                        </Typography>
+                        <Grid container sx={{ width: "100%" }} spacing={2}>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }} mt={2}>
+                                 <Alert severity="info" sx={{ mt: 1, borderRadius: "15px", pt: 1 }}>
+                                    Before you start, make sure you read the description!
+                                </Alert>
+                            </Grid>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }}>
+                                    <Grid container spacing={2} sx={{ width: "100%" }}>
+                                        <Grid
+                                            sx={{ padding: 2, width: "100%" }}
+                                        >
+                                            {/* Currency Dropdown */}
+                                            <Box mt={2}>
+                                                <FormControl fullWidth>
+                                                    <InputLabel id="currency-label">Currency ($)</InputLabel>
+                                                    <Select
+                                                        labelId="currency-label"
+                                                        id="currency"
+                                                        value={formik.values.currency}
+                                                        onChange={(event: SelectChangeEvent) =>
+                                                            formik.setFieldValue(
+                                                                "currency",
+                                                                event.target.value
+                                                            )
+                                                        }
+                                                        label="Currency ($)"
+                                                    >
+                                                        {currencyOptions.map((option) => (
+                                                            <MenuItem key={option} value={option}>
+                                                                {option}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+
+                                        {/* Max limit */}
+                                        <Box mt={2}>
+                                        <TextField
+                                                id="maxlimit"
+                                                name="maxlimit"
+                                                label="Max Limit"
+                                                value={maxlimit}
+                                                fullWidth
+                                                onChange={handleMaxLimit}
+                                                />
+                                            </Box>
+
+                                            {/* Threshold % */}
+                                            <Box mt={2}>
+                                                <FormControl fullWidth>
+                                                    <InputLabel id="warningThreshold">Warning Threshold %</InputLabel>
+                                                    <Select
+                                                        labelId="warningThreshold"
+                                                        id="warningThreshold"
+                                                        value={formik.values.warningThreshold}
+                                                        onChange={(event: SelectChangeEvent) =>
+                                                            formik.setFieldValue("warningThreshold", event.target.value)
+                                                        }
+                                                        label="Warning Threshold %"
+                                                    >
+                                                        {thresholdOptions.map((option) => (
+                                                            <MenuItem key={option} value={option}>
+                                                                {option}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+
+                                            {/* Aggregation Methods */}
+                                            <Box mt={2}>
+                                                <FormControl fullWidth>
+                                                    <InputLabel id="aggregation-method">Aggregation Method</InputLabel>
+                                                    <Select
+                                                        labelId="aggregation-method"
+                                                        id="aggregationMethod"
+                                                        value={formik.values.aggregationMethod}
+                                                        onChange={(event: SelectChangeEvent) =>
+                                                            formik.setFieldValue("aggregationMethod", event.target.value)
+                                                        }
+                                                        label="Aggregation Method"
+                                                    >
+                                                        {AggregationOptions.map((option) => (
+                                                            <MenuItem key={option} value={option}>
+                                                                {option}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+
+                                            {/* Target Fields */}
+                                            <Box mt={2}>
+                                                <FormControl fullWidth>
+                                                    <InputLabel id="targetFields">Target Field(s)</InputLabel>
+                                                    <Select
+                                                        labelId="targetFields"
+                                                        id="targetFields"
+                                                        value={formik.values.targetFields}
+                                                        onChange={(event: SelectChangeEvent) =>
+                                                            formik.setFieldValue("targetFields", event.target.value)
+                                                        }
+                                                        label="Target Field(s)"
+                                                    >
+                                                        {targetOptions.map((option) => (
+                                                            <MenuItem key={option.value} value={option.value}>
+                                                                {option.label}
+                                                            </MenuItem>
+                                                        ))}
+                                                    </Select>
+                                                </FormControl>
+                                            </Box>
+ 
+                                        </Grid>
+                                    </Grid>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Box>
+                {/* Third Section - Query builder / Filteration */}
+                <Box mt={2}>
+                    <Paper sx={{ padding:"20px"}}>
+                        <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>Apply Filters (Optional)</Typography>
+                        <Box mt={2} sx={{ width: "50%" }}>
+                            <FormControl fullWidth>
+                                <InputLabel id="whentoexecute">When To Execute</InputLabel>
+                                <Select
+                                    labelId="whentoexecute"
+                                    id="whentoexecute"
+                                    value={formik.values.whentoexecute}
+                                    onChange={(event: SelectChangeEvent) =>
+                                        formik.setFieldValue("whentoexecute", event.target.value)
+                                    }
+                                    label="When To Execute"
+                                >
+                                    {whenToExecuteOptions.map((option) => (
+                                        <MenuItem key={option} value={option}>
+                                            {option}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+                       {/* Query builder component */}
+                       <Box mt={2}>
+                        <QueryBuilder filterFields={targetOptions} onQueryChange={(newQuery) => {setQuery(newQuery); formik.setFieldValue("query", newQuery )}}/>
+                       </Box>
+                    </Paper>
+                </Box>
+                {/* Review section */}
+                <Box mt={2}>
+                    <Paper sx={{ padding: "20px" }}>
+                        <Typography sx={{ fontWeight: "bold", fontSize: "18px" }}>
+                            Review Result
+                        </Typography>
+                        <Grid container sx={{ width: "100%" }} spacing={2}>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }} mt={2}>
+                                 <Alert severity="info" sx={{ mt: 1, borderRadius: "15px", pt: 1 }}>
+                                    Before you start, make sure you read the description!
+                                </Alert>
+                            </Grid>
+                            <Grid size={{ lg: 6, md: 6, sm: 12, xs: 12 }}>
+                                    <Grid container spacing={2} sx={{ width: "100%" }}>
+                                        <Grid sx={{ padding: 2, width: "100%" }}>
+
+                                        {/* Value field */}
+                                        <Box mt={2}>
+                                        <TextField
+                                                id="review"
+                                                name="review"
+                                                label="Value"
+                                                value={formik.values.review}
+                                                onChange={formik.handleChange}
+                                                fullWidth
+                                                />
+                                            </Box>
+ 
+                                        </Grid>
+                                    </Grid> 
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Box>
+                <Box sx={{display:"flex", justifyContent:"flex-end", gap:"1rem", mb:2, mt:2}}>
+                    <Button type="button" sx={{
+                        border:"solid 1px #222020",
+                        color: "#222020"
+                    }}>Save</Button>
+                    <Button type="submit"
+                    sx={{
+                         backgroundColor:"#df0303",
+                        color: "#fff"
+                    }}>Create Metric</Button>
+                </Box>
+                </form>
+            </Box>
+        </Box>
+    );
+}
+
+
+bbbbbbbbbbbbbbbbbbb
+import React, {useState} from 'react';
+import {Box, Button, MenuItem, Select, TextField, IconButton, TableContainer, Table, Paper} from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+
+const FILTER_OPERATORS = [
+    {value:"=", label:"Equals"},
+    {value:"<>", label:"Not Equals"},
+    {value:"<", label:"Less Than"},
+    {value:">", label:"Greater Than"},
+    {value:"<=", label:"Less Than Equals"},
+    {value:">=", label:"Greater Than Equals"},
+    {value:"IS NULL", label:"Is Null"},
+    {value:"IS NOT NULL", label:"Is Not Null"}
+
+];
+ 
+
+export interface Filter {
+    id: number;
+    field: string;
+    operator: string;
+    value: string;
+}
+export interface FilterField {
+    value: string;
+    label: string;
+}
+
+interface QueryBuilderProps {
+    onQueryChange: (filters: Filter[]) => void;
+    filterFields:FilterField[];
+}
+
+const QueryBuilder:React.FC<QueryBuilderProps> = ({onQueryChange, filterFields}) => {
+    
+    const [filters, setFilters] = useState<Filter[]>([]);
+
+    const updateFilter = (id: number, key: keyof Filter, newValue: string) => {
+        const updateFilters = filters.map((el) => {
+            return el.id === id ? { ...el, [key]: newValue} : el;
+        });
+        setFilters(updateFilters);
+        onQueryChange(updateFilters);
+    }
+
+    const addFilter = () => { 
+        if (filterFields.length === 0) return;
+        const newFilter = {id: filters.length, field:filterFields[filters.length].value, operator:"=", value:""}
+         setFilters([...filters, newFilter]);
+    }
+
+    const removeFilter = (id: number) => {
+        if (filters.length > 1){
+            const updateFilters = filters.filter((el) =>  el.id != id);
+            setFilters(updateFilters);
+            onQueryChange(updateFilters);
+        }
+    }
+
+
+    return (
+        <Box sx={{ display:"flex", flexDirection:"column", gap:2}}>
+
+            {filters.length > 0 && (
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell align="center">Field</TableCell>
+                                    <TableCell align="center">Operator</TableCell>
+                                    <TableCell align="center">Value</TableCell>
+                                    <TableCell align="center">Action</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                    {filters.map((filter) => (
+                        <TableRow key={filter.id}>
+                        <TableCell align="center">
+                            
+                            <Select fullWidth value={filter.field} onChange={(e) => updateFilter(filter.id, "field", e.target.value)}>
+                                {filterFields.map((field)=> (
+                                    <MenuItem key={field.value} value={field.value}>{field.label}</MenuItem>
+                                ))}
+                            </Select>
+
+                        </TableCell>
+                        <TableCell align="center">
+                            <Select fullWidth value={filter.operator} onChange={(e) => updateFilter(filter.id, "operator", e.target.value)}>
+                                {FILTER_OPERATORS.map((op)=> (
+                                    <MenuItem key={op.value} value={op.value}>{op.label}</MenuItem>
+                                ))}
+                            </Select>
+                        </TableCell>
+                        <TableCell align="center">
+                            <TextField value={filter.value} onChange={(e) => updateFilter(filter.id, "value", e.target.value)} />
+                        </TableCell>
+                        <TableCell align="center"> 
+                            <IconButton onClick={() => removeFilter(filter.id)} color="error">
+                                <DeleteIcon />
+                            </IconButton>
+                        </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                        </Table>
+                    </TableContainer>
+                )
+            }
+            <Box sx={{mt:2, alignItems:"left", width:"50%"}}>
+                <Button sx={{ backgroundColor: "primary" }} startIcon={<AddCircleIcon/>} variant="contained" onClick={() => addFilter()}>Add Filter</Button>
+            </Box>
+        </Box>
+    )
+}
+
+export default QueryBuilder;
