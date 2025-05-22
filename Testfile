@@ -1,77 +1,85 @@
-import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import QueryBuilder, { FilterField } from './QueryBuilder';
-
-describe('QueryBuilder Component', () => {
-  const mockFields: FilterField[] = [
-    { value: 'name', label: 'Name' },
-    { value: 'age', label: 'Age' },
-  ];
-
-  const onQueryChangeMock = jest.fn();
-
+describe('TransactionDataSetup - Save functionality', () => {
   beforeEach(() => {
-    onQueryChangeMock.mockClear();
+    jest.useFakeTimers();
+
+    // Mocks for hooks and context
+    (useTransactionContext as jest.Mock).mockReturnValue({
+      currentTransaction: {
+        transactionId: 'txn-123',
+        loanHeader: { loanHeaderId: 'loan-456' }
+      },
+      setCurrentTransaction: jest.fn()
+    });
+
+    (useFileData as jest.Mock).mockReturnValue({
+      fileDataList: [
+        {
+          file: new File(['test'], 'test.csv', { type: 'text/csv' }),
+          fileName: 'test.csv',
+          fileType: 'text/csv',
+          isPoolFile: false,
+          joinKey: 'method',
+          fileUid: 'uid-1',
+          isNew: true
+        }
+      ],
+      setFileDataList: jest.fn(),
+      setCurrentFile: jest.fn()
+    });
+
+    (usePageParams as jest.Mock).mockReturnValue({ transactionId: 'txn-123' });
+
+    (useUploadFile as jest.Mock).mockReturnValue({
+      uploadFile: jest.fn().mockResolvedValue({ success: true })
+    });
+
+    (useSaveTransaction as jest.Mock).mockReturnValue({
+      saveTransaction: jest.fn().mockResolvedValue({
+        transactionId: 'txn-123',
+        loanHeader: { loanHeaderId: 'loan-456' }
+      })
+    });
+
+    (useTriggerGlueJob as jest.Mock).mockReturnValue({
+      triggerGlueJob: jest.fn().mockResolvedValue({
+        jobRunId: 'job-789'
+      })
+    });
+
+    (useTransactionDetail as jest.Mock).mockReturnValue({
+      fetchTransactionDetail: jest.fn(),
+      transactionDetail: null
+    });
+
+    (useGetGlueJobStatusDetails as jest.Mock).mockReturnValue({
+      fetchGlueJobStatusDetail: jest.fn().mockResolvedValue({
+        data: {
+          getGlueJobStatusDetails: {
+            jobStatus: 'SUCCEEDED'
+          }
+        }
+      })
+    });
   });
 
-  it('renders without crashing', () => {
-    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
-    expect(screen.getByRole('button', { name: /add filter/i })).toBeInTheDocument();
-  });
+  it('should invoke handleSave and cover glueJobStatusPolling and checkForNextCall', async () => {
+    render(<TransactionDataSetup />);
 
-  it('adds a filter row when "Add Filter" is clicked', () => {
-    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
-    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-    
-    expect(screen.getByText('Field')).toBeInTheDocument();
-    expect(screen.getByText('Operator')).toBeInTheDocument();
-    expect(screen.getByText('Value')).toBeInTheDocument();
-    expect(onQueryChangeMock).not.toHaveBeenCalled(); // Not called until value changes
-  });
+    // Click the save button
+    const saveButton = screen.getByText(/save/i);
+    fireEvent.click(saveButton);
 
-  it('updates field, operator, and value correctly', () => {
-    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
-    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+    await waitFor(() => {
+      expect(useUploadFile().uploadFile).toHaveBeenCalled();
+      expect(useSaveTransaction().saveTransaction).toHaveBeenCalled();
+      expect(useTriggerGlueJob().triggerGlueJob).toHaveBeenCalled();
+    });
 
-    const fieldSelect = screen.getAllByRole('button')[1]; // First dropdown (field)
-    fireEvent.mouseDown(fieldSelect);
-    fireEvent.click(screen.getByText('Age'));
+    // Fast-forward polling interval
+    jest.runOnlyPendingTimers();
 
-    const operatorSelect = screen.getAllByRole('button')[2]; // Second dropdown (operator)
-    fireEvent.mouseDown(operatorSelect);
-    fireEvent.click(screen.getByText('Not Equals'));
-
-    const valueInput = screen.getByRole('textbox');
-    fireEvent.change(valueInput, { target: { value: '30' } });
-
-    expect(onQueryChangeMock).toHaveBeenCalledTimes(3);
-    expect(onQueryChangeMock).toHaveBeenLastCalledWith([
-      { id: 0, field: 'age', operator: '<>', value: '30' },
-    ]);
-  });
-
-  it('removes a filter', () => {
-    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
-    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-
-    const deleteButton = screen.getByRole('button', { name: /delete/i });
-    fireEvent.click(deleteButton);
-
-    // Since only one filter was added, it should not be removed (safety check in removeFilter)
-    expect(screen.getByText('Field')).toBeInTheDocument(); 
-  });
-
-  it('adds multiple filters and removes one', () => {
-    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
-    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
-
-    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
-    fireEvent.click(deleteButtons[0]);
-
-    // Expect only one row left
-    const rows = screen.getAllByRole('row');
-    // 1 header + 1 row left
-    expect(rows.length).toBe(2);
+    await waitFor(() => {
+      expect(useGetGlueJobStatusDetails().fetchGlueJobStatusDetail).toHaveBeenCalled();
+    });
   });
 });
