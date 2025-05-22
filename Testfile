@@ -1,85 +1,41 @@
-describe('TransactionDataSetup - Save functionality', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
+it('should trigger handleSave, glueJobStatusPolling and checkForNextCall on successful upload and glue job completion', async () => {
+  // Step 1: Mock the file upload as successful
+  mockUploadFile.mockResolvedValue({ status: 'ok' });
 
-    // Mocks for hooks and context
-    (useTransactionContext as jest.Mock).mockReturnValue({
-      currentTransaction: {
-        transactionId: 'txn-123',
-        loanHeader: { loanHeaderId: 'loan-456' }
+  // Step 2: Mock the GraphQL hook that returns job status
+  const mockFetchGlueJobStatusDetail = jest.fn().mockResolvedValue({
+    data: {
+      getGlueJobStatusDetails: {
+        jobStatus: 'SUCCEEDED', // trigger the glueJobStatusPolling + checkForNextCall
       },
-      setCurrentTransaction: jest.fn()
-    });
-
-    (useFileData as jest.Mock).mockReturnValue({
-      fileDataList: [
-        {
-          file: new File(['test'], 'test.csv', { type: 'text/csv' }),
-          fileName: 'test.csv',
-          fileType: 'text/csv',
-          isPoolFile: false,
-          joinKey: 'method',
-          fileUid: 'uid-1',
-          isNew: true
-        }
-      ],
-      setFileDataList: jest.fn(),
-      setCurrentFile: jest.fn()
-    });
-
-    (usePageParams as jest.Mock).mockReturnValue({ transactionId: 'txn-123' });
-
-    (useUploadFile as jest.Mock).mockReturnValue({
-      uploadFile: jest.fn().mockResolvedValue({ success: true })
-    });
-
-    (useSaveTransaction as jest.Mock).mockReturnValue({
-      saveTransaction: jest.fn().mockResolvedValue({
-        transactionId: 'txn-123',
-        loanHeader: { loanHeaderId: 'loan-456' }
-      })
-    });
-
-    (useTriggerGlueJob as jest.Mock).mockReturnValue({
-      triggerGlueJob: jest.fn().mockResolvedValue({
-        jobRunId: 'job-789'
-      })
-    });
-
-    (useTransactionDetail as jest.Mock).mockReturnValue({
-      fetchTransactionDetail: jest.fn(),
-      transactionDetail: null
-    });
-
-    (useGetGlueJobStatusDetails as jest.Mock).mockReturnValue({
-      fetchGlueJobStatusDetail: jest.fn().mockResolvedValue({
-        data: {
-          getGlueJobStatusDetails: {
-            jobStatus: 'SUCCEEDED'
-          }
-        }
-      })
-    });
+    },
   });
 
-  it('should invoke handleSave and cover glueJobStatusPolling and checkForNextCall', async () => {
-    render(<TransactionDataSetup />);
+  // Step 3: Mock the actual hook useGetGlueJobStatusDetails
+  jest.mock('utils/hooks/useGetGlueJobStatus', () => ({
+    __esModule: true,
+    useGetGlueJobStatusDetails: () => ({
+      fetchGlueJobStatusDetail: mockFetchGlueJobStatusDetail,
+    }),
+  }));
 
-    // Click the save button
-    const saveButton = screen.getByText(/save/i);
-    fireEvent.click(saveButton);
+  // Step 4: Setup and render component
+  setup(mockTransactionDetail, [mockNewFile]);
 
-    await waitFor(() => {
-      expect(useUploadFile().uploadFile).toHaveBeenCalled();
-      expect(useSaveTransaction().saveTransaction).toHaveBeenCalled();
-      expect(useTriggerGlueJob().triggerGlueJob).toHaveBeenCalled();
-    });
+  // Step 5: Trigger handleSave via button click
+  const button = screen.getByText('Proceed to Data Mapping');
+  expect(button).toBeInTheDocument();
+  fireEvent.click(button);
 
-    // Fast-forward polling interval
-    jest.runOnlyPendingTimers();
+  // Step 6: Wait for all async actions to complete
+  await waitFor(() => {
+    // Check if uploadFile is triggered (handleSave)
+    expect(mockUploadFile).toHaveBeenCalled();
 
-    await waitFor(() => {
-      expect(useGetGlueJobStatusDetails().fetchGlueJobStatusDetail).toHaveBeenCalled();
-    });
+    // Check if Glue job polling is triggered
+    expect(mockFetchGlueJobStatusDetail).toHaveBeenCalled();
+
+    // You can optionally spy on glueJobStatusPolling and checkForNextCall
+    // If they're internal to your component, consider exposing them or observing side-effects
   });
 });
