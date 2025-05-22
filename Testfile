@@ -1,170 +1,77 @@
-import { act } from '@testing-library/react';
-import { jest } from '@jest/globals';
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import QueryBuilder, { FilterField } from './QueryBuilder';
 
-// Mock setter functions
-const setLoading = jest.fn();
-const setLoadingFalse = () => setLoading(false);
-const setLoadingTrue = () => setLoading(true);
-const checkForNextCall = jest.fn();
-const fetchGlueJobStatusDetail = jest.fn();
+describe('QueryBuilder Component', () => {
+  const mockFields: FilterField[] = [
+    { value: 'name', label: 'Name' },
+    { value: 'age', label: 'Age' },
+  ];
 
-// Simulated glue job input
-const glueJobMock = {
-  transactionId: 123,
-  loanHeaderId: 456,
-  jobRunId: 'job-789',
-};
+  const onQueryChangeMock = jest.fn();
 
-// Rewriting the glueJobStatusPolling function inside the test
-const glueJobStatusPolling = (glueJob: typeof glueJobMock) => {
-  let interval: NodeJS.Timeout;
-
-  const fetchGlueJobStatus = async () => {
-    try {
-      setLoadingTrue();
-      const { data } = await fetchGlueJobStatusDetail({
-        variables: {
-          transactionId: glueJob.transactionId,
-          loanHeaderId: glueJob.loanHeaderId,
-          jobName: 'DATA_INGESTION',
-          jobRunId: glueJob.jobRunId,
-        },
-      });
-      checkForNextCall(data, interval);
-    } catch (error) {
-      clearInterval(interval);
-      setLoadingFalse();
-    }
-  };
-
-  fetchGlueJobStatus();
-  interval = setInterval(fetchGlueJobStatus, 5000); // arbitrary polling time
-};
-
-describe('glueJobStatusPolling', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.clearAllMocks();
+    onQueryChangeMock.mockClear();
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
+  it('renders without crashing', () => {
+    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
+    expect(screen.getByRole('button', { name: /add filter/i })).toBeInTheDocument();
   });
 
-  it('should fetch job status and call checkForNextCall', async () => {
-    fetchGlueJobStatusDetail.mockResolvedValue({ data: { some: 'result' } });
-
-    await act(async () => {
-      glueJobStatusPolling(glueJobMock);
-    });
-
-    expect(setLoading).toHaveBeenCalledWith(true);
-    expect(fetchGlueJobStatusDetail).toHaveBeenCalledTimes(1);
-    expect(checkForNextCall).toHaveBeenCalledWith({ some: 'result' }, expect.anything());
-
-    // Fast forward timers and verify polling
-    await act(async () => {
-      jest.advanceTimersByTime(5000);
-    });
-
-    expect(fetchGlueJobStatusDetail).toHaveBeenCalledTimes(2);
+  it('adds a filter row when "Add Filter" is clicked', () => {
+    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
+    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+    
+    expect(screen.getByText('Field')).toBeInTheDocument();
+    expect(screen.getByText('Operator')).toBeInTheDocument();
+    expect(screen.getByText('Value')).toBeInTheDocument();
+    expect(onQueryChangeMock).not.toHaveBeenCalled(); // Not called until value changes
   });
 
-  it('should handle error and stop polling', async () => {
-    fetchGlueJobStatusDetail.mockRejectedValue(new Error('Failed'));
+  it('updates field, operator, and value correctly', () => {
+    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
+    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
 
-    await act(async () => {
-      glueJobStatusPolling(glueJobMock);
-    });
+    const fieldSelect = screen.getAllByRole('button')[1]; // First dropdown (field)
+    fireEvent.mouseDown(fieldSelect);
+    fireEvent.click(screen.getByText('Age'));
 
-    expect(setLoading).toHaveBeenCalledWith(true);
-    expect(setLoading).toHaveBeenCalledWith(false);
-    expect(checkForNextCall).not.toHaveBeenCalled();
+    const operatorSelect = screen.getAllByRole('button')[2]; // Second dropdown (operator)
+    fireEvent.mouseDown(operatorSelect);
+    fireEvent.click(screen.getByText('Not Equals'));
+
+    const valueInput = screen.getByRole('textbox');
+    fireEvent.change(valueInput, { target: { value: '30' } });
+
+    expect(onQueryChangeMock).toHaveBeenCalledTimes(3);
+    expect(onQueryChangeMock).toHaveBeenLastCalledWith([
+      { id: 0, field: 'age', operator: '<>', value: '30' },
+    ]);
+  });
+
+  it('removes a filter', () => {
+    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
+    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+
+    const deleteButton = screen.getByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButton);
+
+    // Since only one filter was added, it should not be removed (safety check in removeFilter)
+    expect(screen.getByText('Field')).toBeInTheDocument(); 
+  });
+
+  it('adds multiple filters and removes one', () => {
+    render(<QueryBuilder filterFields={mockFields} onQueryChange={onQueryChangeMock} />);
+    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add filter/i }));
+
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+    fireEvent.click(deleteButtons[0]);
+
+    // Expect only one row left
+    const rows = screen.getAllByRole('row');
+    // 1 header + 1 row left
+    expect(rows.length).toBe(2);
   });
 });
-
-
-
-    
-      
-
-            {/* detail cards */}
-            {visible && 
-            <Box sx={{ mt:2,
-                width:"100%",
-                display:"flex", whiteSpace: "nowrap", 
-                gridTemplateColumns:'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', 
-                gap:2, overflowX:"auto"}}>
-                {steps.map((step,i) =>
-                <Card  key={i} sx={{ cursor:"pointer",
-                     minWidth:345, p:1, boxShadow:3,
-                     backgroundColor: selectedStepLog === step.dataIngestionLogs ? "#8080801c" : "#8080800a",
-                     "&:hover": {backgroundColor: "#f5f5f5"}
-                    }}
-                onClick={() => setSelectedStepLog(step.dataIngestionLogs)}
-                >
-                    <CardHeader
-                        avatar={<Avatar src="" alt="A"/>}
-                        title={step.shortDesc}
-                        subheader={step.stepDescription}
-                    />
-                    <CardContent>
-                        <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2">Step Time</Typography>
-                        <Typography variant="body2">{step.stepEndDatetime}</Typography>
-                        </Box>
-                        <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2">Status</Typography>
-                        <Typography variant="body2">{step.stepStatus}</Typography>
-                        </Box>
-                    </CardContent>
-                </Card>
-                )}
-                
-            </Box>
-            }
-            {visible && 
-            <Alert severity="info" sx={{ mt:1, borderRadius:"15px", pt:1}}>
-                <AlertTitle>File level cleansing details</AlertTitle>
-                The file has been processed with the following actions: Merged two sheets, Removed the First three lines,
-                 Deleted seven empty lines, Removed the last line.
-            </Alert>
-            }
-            {visible &&
-            <TableContainer component={Paper} sx={{mt:2}}>
-                <Table sx={{ minWidth: 650 }} aria-label="simple table">
-                    <TableHead>
-                    <TableRow>
-                        <TableCell align="center">Time Stamp</TableCell>
-                        <TableCell align="center">Description</TableCell>
-                        <TableCell align="center">Action Log ID</TableCell>
-                        <TableCell align="center">Status</TableCell>
-                    </TableRow>
-                    </TableHead>
-                    <TableBody>
-                    {selectedStepLog.map((log,i) => (
-                        <TableRow key={i}>
-                        <TableCell align="center">{log.logDatetime}</TableCell>
-                        <TableCell align="center">{log.logDescription}</TableCell>
-                        <TableCell align="center">{log.dataIngestionStepLogid}</TableCell>
-                        <TableCell align="center">
-                        {log.logStatus == 'success'?
-                            (<Box display="flex" sx={{color: "green"}}>
-                                <CheckCircleIcon></CheckCircleIcon>
-                                <Typography variant="body1">{log.logStatus}</Typography>
-                                </Box>)
-                        :   (<span> {log.logStatus}</span>)  
-                        }
-                        </TableCell>
-                        </TableRow>
-                    ))}
-                    </TableBody>
-                </Table>
-                </TableContainer>
-              }
-          </Paper>
-        </Box>
-      </Box>
-    </Box>
-  );
-}
