@@ -1,177 +1,39 @@
-type CalculationTableProps = {
-  filters: {
-    numerator: FilterConfig;
-    denominator: FilterConfig;
-  };
-  onChange: (updatedFilters: {
-    numerator: FilterConfig;
-    denominator: FilterConfig;
-  }) => void;
-  fieldOptions: string[];         // ← field dropdowns like 'First home buyers'
-  valueOptions: string[];         // ← used in "Equals", "Not Equals", "Contains"
-  calculationTypeOptions: string[]; // ← like 'Count', 'Sum', 'Average'
-};
+const blob = new Blob([byteStream], {
+        type: fileExtension
+          ? this.getMimeType(fileExtension)
+          : "application/octet-stream"
+      });
 
+      // Trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
 
-const CalculationTable: React.FC<CalculationTableProps> = ({
-  filters,
-  onChange,
-  fieldOptions,
-  valueOptions,
-  calculationTypeOptions,
-}) => {
-  const conditionOptions = ['Equals', 'Not Equals', 'Greater Than', 'Less Than', 'Contains', 'Custom Text'];
-
-  const handleChange = (
-    type: 'numerator' | 'denominator',
-    key: keyof FilterConfig,
-    value: string | string[]
-  ) => {
-    const updated = {
-      ...filters,
-      [type]: {
-        ...filters[type],
-        [key]: value,
-      },
-    };
-    onChange(updated);
-  };
-
-  const renderValueInput = (type: 'numerator' | 'denominator') => {
-    const condition = filters[type].condition;
-    const value = filters[type].value;
-
-    if (condition === 'Equals' || condition === 'Not Equals') {
-      return (
-        <FormControl fullWidth>
-          <InputLabel>Value</InputLabel>
-          <Select
-            value={value as string}
-            label="Value"
-            onChange={(e) => handleChange(type, 'value', e.target.value)}
-          >
-            {valueOptions.map((opt) => (
-              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      );
-    } else if (condition === 'Contains') {
-      return (
-        <FormControl fullWidth>
-          <InputLabel>Values</InputLabel>
-          <Select
-            multiple
-            value={value as string[]}
-            onChange={(e) => handleChange(type, 'value', e.target.value)}
-            input={<OutlinedInput label="Values" />}
-            renderValue={(selected) => (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {(selected as string[]).map((val) => (
-                  <Chip key={val} label={val} />
-                ))}
-              </Box>
-            )}
-          >
-            {valueOptions.map((opt) => (
-              <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      );
-    } else if (condition === 'Greater Than' || condition === 'Less Than') {
-      return (
-        <TextField
-          type="number"
-          label="Value"
-          fullWidth
-          value={value}
-          onChange={(e) => handleChange(type, 'value', e.target.value)}
-        />
-      );
-    } else if (condition === 'Custom Text') {
-      return (
-        <TextField
-          label="Text"
-          fullWidth
-          value={value}
-          onChange={(e) => handleChange(type, 'value', e.target.value)}
-        />
-      );
+      return { success: true };
     }
 
-    return null;
-  };
 
-  return (
-    <TableContainer component={Paper} sx={{ maxWidth: 900, mt: 4, mx: 'auto' }}>
-      <Typography variant="h6" sx={{ p: 2 }}>Set up calculation</Typography>
-      <Table>
-        <TableBody>
-          {(['numerator', 'denominator'] as const).map((type) => (
-            <React.Fragment key={type}>
-              <TableRow>
-                <TableCell>{filters[type].label} calculation</TableCell>
-                <TableCell>
-                  <FormControl fullWidth>
-                    <InputLabel>Calculation</InputLabel>
-                    <Select
-                      value={filters[type].calculation}
-                      label="Calculation"
-                      onChange={(e) => handleChange(type, 'calculation', e.target.value)}
-                    >
-                      {calculationTypeOptions.map(opt => (
-                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell>
-                  <FormControl fullWidth>
-                    <InputLabel>Field</InputLabel>
-                    <Select
-                      value={filters[type].field}
-                      label="Field"
-                      onChange={(e) => handleChange(type, 'field', e.target.value)}
-                    >
-                      {fieldOptions.map(opt => (
-                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-              </TableRow>
+    return { success: false };
 
-              <TableRow>
-                <TableCell>{filters[type].label} filter</TableCell>
-                <TableCell>
-                  <FormControl fullWidth>
-                    <InputLabel>Condition</InputLabel>
-                    <Select
-                      value={filters[type].condition}
-                      label="Condition"
-                      onChange={(e) => handleChange(type, 'condition', e.target.value)}
-                    >
-                      {conditionOptions.map(opt => (
-                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell>
-                  {renderValueInput(type)}
-                </TableCell>
-              </TableRow>
-            </React.Fragment>
-          ))}
-        </TableBody>
-      </Table>
+  } catch (error) {
+    this.handleApiError(error);
+    return { success: false };
+  }
+}
 
-      <Typography sx={{ p: 2, fontWeight: 'bold' }}>
-        Preview Result: <em>A preview will be populated if data has been ingested.</em>
-      </Typography>
-    </TableContainer>
-  );
-};
-
-export default CalculationTable;
+// Helper: map extensions to MIME types
+private getMimeType(ext: string) {
+  const map: Record<string, string> = {
+    csv: "text/csv",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xls: "application/vnd.ms-excel",
+    pdf: "application/pdf",
+    txt: "text/plain",
+    json: "application/json"
+  }
+  
