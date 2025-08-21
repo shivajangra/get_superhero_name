@@ -1,39 +1,269 @@
-const blob = new Blob([byteStream], {
-        type: fileExtension
-          ? this.getMimeType(fileExtension)
-          : "application/octet-stream"
-      });
+import React, { useState, useCallback } from "react";
+import {
+  TableRow,
+  TableCell,
+  Collapse,
+  IconButton,
+  Button,
+} from "@mui/material";
+import { ForwardedFormProps } from "./types"; // <-- adjust import path
+import { cleansingRuleTypes, TransformedRulesInstr } from "./types"; // <-- adjust import path
 
-      // Trigger download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+// Example imports for icons & styled components
+import ControlUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import ControlDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import StyledSubRowDropdown from "./StyledSubRowDropdown";
+import StyledSubRowTextField from "./StyledSubRowTextField";
+import StyledDeleteIcon from "./StyledDeleteIcon";
+import {
+  StyledFlexSeparator,
+  StyledItemRight,
+  StyledRowDiv,
+  StyledSection,
+  StyledParagraph,
+  StyledH3,
+} from "./StyledComponents"; // adjust paths
 
-      return { success: true };
+// Example constants
+const fieldsName = {
+  FIND: "find",
+  REPLACE: "replace",
+  MIN_VALUE: "minValue",
+};
+
+const numeric_ruleTypes = [
+  { value: "percentage", label: "Convert to %" },
+  { value: "absolute", label: "Convert to Positive" },
+  { value: "minValue", label: "Minimum Value" },
+];
+
+const getRuleType = (mappingMethod: string) => {
+  // Example — replace with your real logic
+  if (mappingMethod === "Number") return numeric_ruleTypes;
+  return [
+    { value: "find_replace", label: "Find & Replace" },
+    { value: "uppercase", label: "Uppercase" },
+  ];
+};
+
+type Props = {
+  formProps: ForwardedFormProps;
+  row: TransformedRulesInstr;
+  index: number;
+  updateRules: (index: number, cleansingInstr: cleansingRuleTypes[]) => void;
+  isReadOnlyAccess?: boolean;
+};
+
+const CollapsibleRow: React.FC<Props> = ({
+  formProps,
+  row,
+  index,
+  updateRules,
+  isReadOnlyAccess,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [disableAddRule, setDisableAddRule] = useState(false);
+
+  if (!row) {
+    return (
+      <TableRow>
+        <TableCell colSpan={6}>
+          <StyledH3>Invalid Row Data</StyledH3>
+        </TableCell>
+      </TableRow>
+    );
+  }
+
+  /** 🔹 Update a rule without wiping out others */
+  const handleRuleChange = useCallback(
+    (field: string, ruleIndex: number, payload: any) => {
+      const newInstr = [...(row.cleansingData ?? [])];
+      newInstr[ruleIndex] = {
+        ...newInstr[ruleIndex],
+        [field]: payload.value,
+        cleansingRuleName:
+          payload.type ?? newInstr[ruleIndex]?.cleansingRuleName,
+      };
+      updateRules(index, newInstr);
+
+      formProps.setFieldValue(
+        `cleansingData.${index}_${ruleIndex}.${field}`,
+        payload.value
+      );
+    },
+    [row.cleansingData, index, updateRules, formProps]
+  );
+
+  /** 🔹 Add new rule with unique id */
+  const addRule = () => {
+    const newInstr = [
+      ...(row.cleansingData ?? []),
+      { id: crypto.randomUUID(), type: "", value: "" },
+    ];
+    updateRules(index, newInstr);
+    setDisableAddRule(true);
+  };
+
+  /** 🔹 Delete rule */
+  const deleteRule = (ruleIndex: number) => {
+    const currentData = row?.cleansingData ?? [];
+    const newInstr = currentData.filter((_, i) => i !== ruleIndex);
+    updateRules(index, newInstr);
+    if (newInstr.length === 0) setDisableAddRule(false);
+  };
+
+  /** 🔹 Conditional rendering based on rule type */
+  const getFieldsByRuleType = (
+    instr: any,
+    formProps: ForwardedFormProps,
+    index: number,
+    rIdx: number
+  ) => {
+    const { values } = formProps;
+    const currentRuleType =
+      values?.cleansingData?.[`${index}_${rIdx}`]?.[`ruleType${rIdx}`]?.value ||
+      "";
+
+    switch (currentRuleType) {
+      case numeric_ruleTypes[0].value:
+        return (
+          <StyledParagraph>
+            Convert to % by dividing by 100 (e.g., 5.5 → 5.5%)
+          </StyledParagraph>
+        );
+      case numeric_ruleTypes[1].value:
+        return (
+          <StyledParagraph>
+            Applies only if all column values are negative — values will be
+            converted to positive.
+          </StyledParagraph>
+        );
+      case numeric_ruleTypes[2].value:
+        return (
+          <>
+            <StyledSubRowTextField
+              name={`cleansingData.${index}_${rIdx}.minValue${rIdx}`}
+              label="Value"
+              onChange={(e: any) =>
+                handleRuleChange(fieldsName.MIN_VALUE, rIdx, {
+                  type: instr.cleansingRuleName,
+                  value: e.target.value,
+                })
+              }
+              disabled={isReadOnlyAccess}
+            />
+            <StyledParagraph>
+              Any value below will be substituted
+            </StyledParagraph>
+          </>
+        );
+      default:
+        return null;
     }
+  };
 
+  /** 🔹 Render row */
+  return (
+    <>
+      <TableRow data-testid="table-row" key={index}>
+        <TableCell>
+          <IconButton onClick={() => setOpen(!open)} aria-label="expand row">
+            {open ? <ControlUpIcon /> : <ControlDownIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell>{row.srcFieldName}</TableCell>
+        <TableCell>{row.upfFieldName}</TableCell>
+        <TableCell>{row.mappingMethod}</TableCell>
+        <TableCell>{row.isMandatory ? "Required" : "Optional"}</TableCell>
+        <TableCell>{row.allCleansingRules}</TableCell>
+      </TableRow>
 
-    return { success: false };
+      {/* Expandable Section */}
+      <TableRow key={`col-${index}`}>
+        <TableCell colSpan={6} style={{ padding: 0 }}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <StyledRowDiv>
+              <StyledSection>
+                {row.cleansingData.map((instr, rIdx) => (
+                  <StyledFlexSeparator
+                    key={instr.id || `${row.id}-${rIdx}`}
+                  >
+                    {/* Rule Type */}
+                    <StyledSubRowDropdown
+                      name={`cleansingData.${index}_${rIdx}.ruleType${rIdx}.value`}
+                      data-testid={`rule-type-${rIdx}`}
+                      options={getRuleType(row.mappingMethod)}
+                      disabled={isReadOnlyAccess}
+                      onChange={(selected: any) => {
+                        formProps.setFieldValue(
+                          `cleansingData.${index}_${rIdx}.ruleType${rIdx}`,
+                          selected
+                        );
+                        handleRuleChange("ruleType", rIdx, selected);
+                      }}
+                    />
 
-  } catch (error) {
-    this.handleApiError(error);
-    return { success: false };
-  }
-}
+                    {/* Rule-specific fields */}
+                    {getFieldsByRuleType(instr, formProps, index, rIdx)}
 
-// Helper: map extensions to MIME types
-private getMimeType(ext: string) {
-  const map: Record<string, string> = {
-    csv: "text/csv",
-    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    xls: "application/vnd.ms-excel",
-    pdf: "application/pdf",
-    txt: "text/plain",
-    json: "application/json"
-  }
-  
+                    {/* Find */}
+                    <StyledSubRowTextField
+                      name={`cleansingData.${index}_${rIdx}.find${rIdx}`}
+                      data-testid={`find-${rIdx}`}
+                      label="Find"
+                      onChange={(e: any) =>
+                        handleRuleChange(fieldsName.FIND, rIdx, {
+                          type: instr.cleansingRuleName,
+                          value: e.target.value,
+                        })
+                      }
+                      disabled={isReadOnlyAccess}
+                    />
+
+                    {/* Replace */}
+                    <StyledSubRowTextField
+                      name={`cleansingData.${index}_${rIdx}.replace${rIdx}`}
+                      data-testid={`replace-${rIdx}`}
+                      label="Replace"
+                      onChange={(e: any) =>
+                        handleRuleChange(fieldsName.REPLACE, rIdx, {
+                          type: instr.cleansingRuleName,
+                          value: e.target.value,
+                        })
+                      }
+                      disabled={isReadOnlyAccess}
+                    />
+
+                    {/* Delete */}
+                    <StyledDeleteIcon
+                      data-testid="delete-rule-btn"
+                      onClick={
+                        isReadOnlyAccess ? undefined : () => deleteRule(rIdx)
+                      }
+                      style={{
+                        opacity: isReadOnlyAccess ? 0.5 : 1,
+                        cursor: isReadOnlyAccess ? "not-allowed" : "pointer",
+                      }}
+                    />
+                  </StyledFlexSeparator>
+                ))}
+
+                {/* Add rule */}
+                <StyledItemRight>
+                  <Button
+                    label="+ Add rule"
+                    data-testid={`add-rule-button-${index}`}
+                    onClick={addRule}
+                    disabled={disableAddRule || isReadOnlyAccess}
+                  />
+                </StyledItemRight>
+              </StyledSection>
+            </StyledRowDiv>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
+export default React.memo(CollapsibleRow);
