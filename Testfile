@@ -1,88 +1,136 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import ManageLookup from './ManageLookup';
 
-// ---- mock dependencies ----
-const mockSaveLookupsData = jest.fn();
-const mockUpdateLookup = jest.fn();
-const mockOnClose = jest.fn();
+function isEqual(a, b) {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (typeof a !== "object" || a === null || b === null) return false;
 
-jest.mock('../../hooks/useSaveLookupsData', () => ({
-  __esModule: true,
-  default: () => mockSaveLookupsData,
-}));
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false;
+    return a.every((item, i) => isEqual(item, b[i]));
+  }
 
-// Common setup for tests
-const setup = () => {
-  render(
-    <ManageLookup
-      updateLookup={mockUpdateLookup}
-      onClose={mockOnClose}
-      lookupsQuery={[]}
-      newLookups={[]}
-      setPageErrorMessage={jest.fn()}
-    />
-  );
-};
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
 
-describe('ManageLookup - Data Cleansing', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+  return keysA.every(key => isEqual(a[key], b[key]));
+}
+
+// Get updated objects
+function getUpdatedObjects(original, updated) {
+  return updated.filter(updatedObj => {
+    const originalObj = original.find(o => o.id === updatedObj.id);
+    if (!originalObj) return false;
+
+    return !isEqual(updatedObj, originalObj);
+  });
+}
+
+const changedObjects = getUpdatedObjects(originalData, updatedData);
+
+console.log(changedObjects)
+
+import { isEqual, getUpdatedObjects } from './deepCompare'; // adjust path as needed
+
+describe('isEqual()', () => {
+  test('returns true for identical primitive values', () => {
+    expect(isEqual(5, 5)).toBe(true);
+    expect(isEqual('abc', 'abc')).toBe(true);
   });
 
-  test('✅ Should save lookups successfully', async () => {
-    mockSaveLookupsData.mockResolvedValueOnce({ lookupOptions: ['test'] });
-
-    setup();
-
-    // Add a new lookup value
-    const button = screen.getByTestId('add-lookup-value');
-    await userEvent.click(button);
-
-    const input = screen.getByTestId('lookupValue-0').querySelector('input')!;
-    await userEvent.type(input, 'Test New');
-
-    // Apply changes
-    const applyButton = screen.getByTestId('apply-changes');
-    await userEvent.click(applyButton);
-
-    // Assert async call was made
-    await waitFor(() => {
-      expect(mockSaveLookupsData).toHaveBeenCalledTimes(1);
-      expect(mockUpdateLookup).toHaveBeenCalled();
-      expect(mockOnClose).toHaveBeenCalled();
-    });
+  test('returns false for different primitive values', () => {
+    expect(isEqual(5, 10)).toBe(false);
+    expect(isEqual('abc', 'def')).toBe(false);
   });
 
-  test('❌ Should show error when save fails', async () => {
-    mockSaveLookupsData.mockRejectedValueOnce(new Error('fail'));
+  test('returns true for identical shallow objects', () => {
+    const a = { x: 1, y: 2 };
+    const b = { x: 1, y: 2 };
+    expect(isEqual(a, b)).toBe(true);
+  });
 
-    const mockSetPageErrorMessage = jest.fn();
-    render(
-      <ManageLookup
-        updateLookup={mockUpdateLookup}
-        onClose={mockOnClose}
-        lookupsQuery={[]}
-        newLookups={[]}
-        setPageErrorMessage={mockSetPageErrorMessage}
-      />
-    );
+  test('returns false for shallow objects with different values', () => {
+    const a = { x: 1, y: 2 };
+    const b = { x: 1, y: 3 };
+    expect(isEqual(a, b)).toBe(false);
+  });
 
-    // Add a new lookup value
-    const button = screen.getByTestId('add-lookup-value');
-    await userEvent.click(button);
+  test('returns true for deeply nested objects', () => {
+    const a = { x: { y: { z: [1, 2, 3] } } };
+    const b = { x: { y: { z: [1, 2, 3] } } };
+    expect(isEqual(a, b)).toBe(true);
+  });
 
-    const input = screen.getByTestId('lookupValue-0').querySelector('input')!;
-    await userEvent.type(input, 'Fail Test');
+  test('returns false for deeply nested objects with different values', () => {
+    const a = { x: { y: { z: [1, 2, 3] } } };
+    const b = { x: { y: { z: [1, 2, 4] } } };
+    expect(isEqual(a, b)).toBe(false);
+  });
 
-    // Apply changes
-    const applyButton = screen.getByTestId('apply-changes');
-    await userEvent.click(applyButton);
+  test('returns false for arrays of different lengths', () => {
+    const a = [1, 2];
+    const b = [1, 2, 3];
+    expect(isEqual(a, b)).toBe(false);
+  });
 
-    // Assert error handling
-    await waitFor(() => {
-      expect(mockSaveLookupsData).toHaveBeenCalledTimes(1);
-      expect(mockSetPageErrorMessage).toHaveBeenCalledWith('Something Went Wrong!');
-    });
+  test('returns true for arrays of identical objects', () => {
+    const a = [{ id: 1, val: 'a' }, { id: 2, val: 'b' }];
+    const b = [{ id: 1, val: 'a' }, { id: 2, val: 'b' }];
+    expect(isEqual(a, b)).toBe(true);
+  });
+
+  test('returns false for arrays of objects with different nested values', () => {
+    const a = [{ id: 1, val: 'a' }];
+    const b = [{ id: 1, val: 'b' }];
+    expect(isEqual(a, b)).toBe(false);
+  });
+});
+
+describe('getUpdatedObjects()', () => {
+  const original = [
+    {
+      id: 1,
+      name: 'Alice',
+      details: { age: 25, skills: [{ name: 'JS' }] }
+    },
+    {
+      id: 2,
+      name: 'Bob',
+      details: { age: 30, skills: [{ name: 'Python' }] }
+    }
+  ];
+
+  const updated = [
+    {
+      id: 1,
+      name: 'Alice',
+      details: { age: 26, skills: [{ name: 'JS' }] } // age changed
+    },
+    {
+      id: 2,
+      name: 'Bob',
+      details: { age: 30, skills: [{ name: 'Python' }, { name: 'Django' }] } // added skill
+    },
+    {
+      id: 3,
+      name: 'Charlie',
+      details: { age: 20, skills: [] } // new record (ignored)
+    }
+  ];
+
+  test('returns only objects with updated properties', () => {
+    const result = getUpdatedObjects(original, updated);
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.id)).toEqual([1, 2]);
+  });
+
+  test('returns empty array if nothing changed', () => {
+    const same = JSON.parse(JSON.stringify(original));
+    expect(getUpdatedObjects(original, same)).toHaveLength(0);
+  });
+
+  test('ignores new objects that don’t exist in original array', () => {
+    const result = getUpdatedObjects(original, updated);
+    expect(result.find(r => r.id === 3)).toBeUndefined();
   });
 });
