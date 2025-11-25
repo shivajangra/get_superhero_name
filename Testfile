@@ -1,4 +1,36 @@
 
+function mockCryptoSHA1() {
+  const crypto = require("crypto");
+
+  global.crypto = {
+    subtle: {
+      digest: (_alg: string, data: ArrayBuffer) => {
+        const nodeHash = crypto.createHash("sha1");
+        nodeHash.update(Buffer.from(data));
+        const digest = nodeHash.digest();
+
+        return Promise.resolve(
+          new Uint8Array(digest).buffer  // ArrayBuffer
+        );
+      }
+    }
+  } as any;
+}
+
+describe("sha1Base64", () => {
+  beforeAll(() => mockCryptoSHA1());
+
+  it("should return correct SHA1 base64 hash", async () => {
+    const blob = new Blob(["hello world"]);
+
+    const result = await sha1Base64(blob);
+
+    expect(result).toBe("Kq5sNclPz7QV2+lfQIuc6R7oRu0=");
+  });
+});
+
+
+
 function isEqual(a, b) {
   if (a === b) return true;
   if (typeof a !== typeof b) return false;
