@@ -1,168 +1,91 @@
 
-function mockCryptoSHA1() {
-  const crypto = require("crypto");
+// Minimal SHA-1 implementation (tiny version)
+export async function sha1Mini(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
 
-  global.crypto = {
-    subtle: {
-      digest: (_alg: string, data: ArrayBuffer) => {
-        const nodeHash = crypto.createHash("sha1");
-        nodeHash.update(Buffer.from(data));
-        const digest = nodeHash.digest();
-
-        return Promise.resolve(
-          new Uint8Array(digest).buffer  // ArrayBuffer
-        );
-      }
-    }
-  } as any;
-}
-
-describe("sha1Base64", () => {
-  beforeAll(() => mockCryptoSHA1());
-
-  it("should return correct SHA1 base64 hash", async () => {
-    const blob = new Blob(["hello world"]);
-
-    const result = await sha1Base64(blob);
-
-    expect(result).toBe("Kq5sNclPz7QV2+lfQIuc6R7oRu0=");
-  });
-});
-
-
-
-function isEqual(a, b) {
-  if (a === b) return true;
-  if (typeof a !== typeof b) return false;
-  if (typeof a !== "object" || a === null || b === null) return false;
-
-  if (Array.isArray(a)) {
-    if (a.length !== b.length) return false;
-    return a.every((item, i) => isEqual(item, b[i]));
+  function rotl(n: number, s: number) {
+    return (n << s) | (n >>> (32 - s));
   }
 
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  if (keysA.length !== keysB.length) return false;
+  function toHex(i: number) {
+    return ('00000000' + i.toString(16)).slice(-8);
+  }
 
-  return keysA.every(key => isEqual(a[key], b[key]));
-}
+  // Convert bytes to 32-bit words
+  const words = [];
+  for (let i = 0; i < bytes.length; i += 4) {
+    words[i >> 2] =
+      (bytes[i] << 24) |
+      (bytes[i + 1] << 16) |
+      (bytes[i + 2] << 8) |
+      (bytes[i + 3] || 0);
+  }
 
-// Get updated objects
-function getUpdatedObjects(original, updated) {
-  return updated.filter(updatedObj => {
-    const originalObj = original.find(o => o.id === updatedObj.id);
-    if (!originalObj) return false;
+  // Append padding
+  const bitLen = bytes.length * 8;
+  words[bitLen >> 5] |= 0x80 << (24 - (bitLen % 32));
+  words[((bitLen + 64 >> 9) << 4) + 15] = bitLen;
 
-    return !isEqual(updatedObj, originalObj);
-  });
-}
+  // SHA-1 initial constants
+  let h0 = 0x67452301;
+  let h1 = 0xefcdab89;
+  let h2 = 0x98badcfe;
+  let h3 = 0x10325476;
+  let h4 = 0xc3d2e1f0;
 
-const changedObjects = getUpdatedObjects(originalData, updatedData);
+  const w = new Array(80);
 
-console.log(changedObjects)
-
-import { isEqual, getUpdatedObjects } from './deepCompare'; // adjust path as needed
-
-describe('isEqual()', () => {
-  test('returns true for identical primitive values', () => {
-    expect(isEqual(5, 5)).toBe(true);
-    expect(isEqual('abc', 'abc')).toBe(true);
-  });
-
-  test('returns false for different primitive values', () => {
-    expect(isEqual(5, 10)).toBe(false);
-    expect(isEqual('abc', 'def')).toBe(false);
-  });
-
-  test('returns true for identical shallow objects', () => {
-    const a = { x: 1, y: 2 };
-    const b = { x: 1, y: 2 };
-    expect(isEqual(a, b)).toBe(true);
-  });
-
-  test('returns false for shallow objects with different values', () => {
-    const a = { x: 1, y: 2 };
-    const b = { x: 1, y: 3 };
-    expect(isEqual(a, b)).toBe(false);
-  });
-
-  test('returns true for deeply nested objects', () => {
-    const a = { x: { y: { z: [1, 2, 3] } } };
-    const b = { x: { y: { z: [1, 2, 3] } } };
-    expect(isEqual(a, b)).toBe(true);
-  });
-
-  test('returns false for deeply nested objects with different values', () => {
-    const a = { x: { y: { z: [1, 2, 3] } } };
-    const b = { x: { y: { z: [1, 2, 4] } } };
-    expect(isEqual(a, b)).toBe(false);
-  });
-
-  test('returns false for arrays of different lengths', () => {
-    const a = [1, 2];
-    const b = [1, 2, 3];
-    expect(isEqual(a, b)).toBe(false);
-  });
-
-  test('returns true for arrays of identical objects', () => {
-    const a = [{ id: 1, val: 'a' }, { id: 2, val: 'b' }];
-    const b = [{ id: 1, val: 'a' }, { id: 2, val: 'b' }];
-    expect(isEqual(a, b)).toBe(true);
-  });
-
-  test('returns false for arrays of objects with different nested values', () => {
-    const a = [{ id: 1, val: 'a' }];
-    const b = [{ id: 1, val: 'b' }];
-    expect(isEqual(a, b)).toBe(false);
-  });
-});
-
-describe('getUpdatedObjects()', () => {
-  const original = [
-    {
-      id: 1,
-      name: 'Alice',
-      details: { age: 25, skills: [{ name: 'JS' }] }
-    },
-    {
-      id: 2,
-      name: 'Bob',
-      details: { age: 30, skills: [{ name: 'Python' }] }
+  // Process blocks
+  for (let i = 0; i < words.length; i += 16) {
+    for (let t = 0; t < 80; t++) {
+      w[t] =
+        t < 16
+          ? words[i + t]
+          : rotl(w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16], 1);
     }
-  ];
 
-  const updated = [
-    {
-      id: 1,
-      name: 'Alice',
-      details: { age: 26, skills: [{ name: 'JS' }] } // age changed
-    },
-    {
-      id: 2,
-      name: 'Bob',
-      details: { age: 30, skills: [{ name: 'Python' }, { name: 'Django' }] } // added skill
-    },
-    {
-      id: 3,
-      name: 'Charlie',
-      details: { age: 20, skills: [] } // new record (ignored)
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+
+    for (let t = 0; t < 80; t++) {
+      const f =
+        t < 20
+          ? (b & c) | (~b & d)
+          : t < 40
+          ? b ^ c ^ d
+          : t < 60
+          ? (b & c) | (b & d) | (c & d)
+          : b ^ c ^ d;
+
+      const k =
+        t < 20
+          ? 0x5a827999
+          : t < 40
+          ? 0x6ed9eba1
+          : t < 60
+          ? 0x8f1bbcdc
+          : 0xca62c1d6;
+
+      const temp = (rotl(a, 5) + f + e + k + w[t]) >>> 0;
+      e = d;
+      d = c;
+      c = rotl(b, 30);
+      b = a;
+      a = temp;
     }
-  ];
 
-  test('returns only objects with updated properties', () => {
-    const result = getUpdatedObjects(original, updated);
-    expect(result).toHaveLength(2);
-    expect(result.map(r => r.id)).toEqual([1, 2]);
-  });
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+  }
 
-  test('returns empty array if nothing changed', () => {
-    const same = JSON.parse(JSON.stringify(original));
-    expect(getUpdatedObjects(original, same)).toHaveLength(0);
-  });
-
-  test('ignores new objects that don’t exist in original array', () => {
-    const result = getUpdatedObjects(original, updated);
-    expect(result.find(r => r.id === 3)).toBeUndefined();
-  });
-});
+  return (
+    toHex(h0) +
+    toHex(h1) +
+    toHex(h2) +
+    toHex(h3) +
+    toHex(h4)
+  );
+}
