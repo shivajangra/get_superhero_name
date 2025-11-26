@@ -1,3 +1,35 @@
+describe("createChunks", () => {
+  it("should split file into correct chunk sizes", async () => {
+    // 1️⃣ Create a fake Blob of 12MB (so it becomes 3 chunks)
+    const fileSize = CHUNK_SIZE * 2 + CHUNK_SIZE / 2; // 2.5 chunks → 3 chunks
+    const fakeContent = new Uint8Array(fileSize);
+    const fakeFile = new Blob([fakeContent]);
+
+    const fileData = {
+      file: fakeFile,
+      fileSize,
+    };
+
+    // 2️⃣ Call the function
+    const chunks = await createChunks(fileData);
+
+    // 3️⃣ Assertions
+    expect(chunks.length).toBe(3);
+
+    expect(chunks[0].size).toBe(CHUNK_SIZE);
+    expect(chunks[1].size).toBe(CHUNK_SIZE);
+    
+    // Last chunk should be only half size
+    expect(chunks[2].size).toBe(CHUNK_SIZE / 2);
+
+    // Ensure each chunk is a Blob
+    chunks.forEach(chunk => {
+      expect(chunk).toBeInstanceOf(Blob);
+    });
+  });
+});
+
+
 // Mock Blob.arrayBuffer()
 Blob.prototype.arrayBuffer = function () {
   const reader = new FileReader();
