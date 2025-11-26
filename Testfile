@@ -1,4 +1,23 @@
+// Mock Blob.arrayBuffer()
+Blob.prototype.arrayBuffer = function () {
+  const reader = new FileReader();
+  return new Promise<ArrayBuffer>((resolve) => {
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.readAsArrayBuffer(this);
+  });
+};
 
+// Mock crypto.subtle.digest()
+global.crypto = {
+  subtle: {
+    digest: jest.fn(async (_algorithm, data) => {
+      // Simple mock hash: return the same bytes reversed
+      const arr = new Uint8Array(data);
+      const reversed = Uint8Array.from(arr.reverse());
+      return reversed.buffer;
+    }),
+  },
+} as unknown as Crypto;
 // Minimal SHA-1 implementation (tiny version)
 export async function sha1Mini(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
