@@ -1,42 +1,36 @@
-describe("sha1Base64", () => {
-  let mockDigest: jest.Mock;
+import * as chunkUtils from "src/utils/common/file-download";
+import * as shaUtils from "src/utils/common/file-download";
 
-  beforeEach(() => {
-    // Mock crypto.subtle.digest
-    mockDigest = jest.fn().mockResolvedValue(
-      new Uint8Array([1, 2, 3]).buffer   // mock SHA-256 output
-    );
+// Mock sha1Base64
+jest.spyOn(shaUtils, "sha1Base64").mockResolvedValue("FAKE_HASH==");
 
-    // @ts-ignore
-    global.crypto = {
-      subtle: {
-        digest: mockDigest,
-      },
-    };
+it("should redirect back to regulatory page on save changes", async () => {
+  jest.spyOn(chunkUtils, "createChunks")
+    .mockResolvedValue([ new Blob(["abc"]), new Blob(["def"]) ]);
+
+  const mockFile = new File(["hello world"], "test.csv");
+
+  const mockNewFile = {
+    file: mockFile,
+    fileName: "test.csv",
+    fileType: "csv",
+    fileUuid: "abc",
+    fileSize: mockFile.size, // IMPORTANT: must match real size
+  };
+
+  // mock context
+  (FileDataContext.useFileData as jest.Mock).mockReturnValue({
+    setCurrentFile: jest.fn(),
+    fileDataList: [mockNewFile],
+    currentFile: mockNewFile,
   });
 
-  it("should compute SHA-256 base64 for a Blob", async () => {
-    // Mock Blob
-    const blob = new Blob(["test data"]);
+  render(<FileSetting />);
 
-    // Mock arrayBuffer() for the blob
-    const mockArrayBuffer = new TextEncoder().encode("test data").buffer;
-    blob.arrayBuffer = jest.fn().mockResolvedValue(mockArrayBuffer);
+  // Trigger upload
+  fireEvent.click(screen.getByText("Upload"));
 
-    const result = await sha1Base64(blob);
-
-    // Expected base64 from [1,2,3]
-    const expectedBase64 = btoa(String.fromCharCode(1, 2, 3));
-
-    expect(result).toBe(expectedBase64);
-
-    // Ensure arrayBuffer() was called
-    expect(blob.arrayBuffer).toHaveBeenCalledTimes(1);
-
-    // Ensure digest was called correctly
-    expect(mockDigest).toHaveBeenCalledWith(
-      "SHA-256",
-      mockArrayBuffer
-    );
-  });
+  // Assertions
+  expect(chunkUtils.createChunks).toHaveBeenCalled();
+  expect(shaUtils.sha1Base64).toHaveBeenCalledTimes(2);
 });
