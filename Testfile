@@ -1,36 +1,143 @@
-import * as chunkUtils from "src/utils/common/file-download";
-import * as shaUtils from "src/utils/common/file-download";
+import { fileUpload } from "./fileUpload";
+import { createChunks } from "./createChunks";
+import { sha1Base64 } from "./sha1Base64";
+import { initialFileUpload, uploadFileChunk, finaliseUploadFile } from "./api";
 
-// Mock sha1Base64
-jest.spyOn(shaUtils, "sha1Base64").mockResolvedValue("FAKE_HASH==");
+jest.mock("./createChunks");
+jest.mock("./sha1Base64");
+jest.mock("./api");
 
-it("should redirect back to regulatory page on save changes", async () => {
-  jest.spyOn(chunkUtils, "createChunks")
-    .mockResolvedValue([ new Blob(["abc"]), new Blob(["def"]) ]);
-
-  const mockFile = new File(["hello world"], "test.csv");
-
-  const mockNewFile = {
-    file: mockFile,
-    fileName: "test.csv",
-    fileType: "csv",
-    fileUuid: "abc",
-    fileSize: mockFile.size, // IMPORTANT: must match real size
+describe("fileUpload", () => {
+  const mockFileData = {
+    fileSize: 20,
+    fileName: "test.pdf",
+    file: new Blob(["12345678901234567890"]),
   };
 
-  // mock context
-  (FileDataContext.useFileData as jest.Mock).mockReturnValue({
-    setCurrentFile: jest.fn(),
-    fileDataList: [mockNewFile],
-    currentFile: mockNewFile,
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  render(<FileSetting />);
+  test("should upload file chunks, send digest, and finalise upload", async () => {
+    // mock chunk generation
+    (createChunks as jest.Mock).mockResolvedValue([
+      { size: 10, data: "chunk1" },
+      { size: 10, data: "chunk2" },
+    ]);
 
-  // Trigger upload
-  fireEvent.click(screen.getByText("Upload"));
+    // mock sha1 for each chunk
+    (sha1Base64 as jest.Mock)
+      .mockResolvedValueOnce("digest1")
+      .mockResolvedValueOnce("digest2");
 
-  // Assertions
-  expect(chunkUtils.createChunks).toHaveBeenCalled();
-  expect(shaUtils.sha1Base64).toHaveBeenCalledTimes(2);
+    // mock initial upload response
+    (initialFileUpload as jest.Mock).mockResolvedValue({
+      sessionId: "session123",
+    });
+
+    // mock chunk upload responses
+    (uploadFileChunk as jest.Mock)
+      .mockResolvedValueOnce({ partId: 1 })
+      .mockResolvedValueOnce({ partId: 2 });
+
+    // mock final upload
+    (finaliseUploadFile as jest.Mock).mockResolvedValue({
+      fileUrl: "https://file-url.com/file",
+    });
+
+    const result = await fileUpload(mockFileData);
+
+    expect(initialFileUpload).toHaveBeenCalledWith({
+      fileName: "test.pdf",
+      fileSize: 20,
+    });
+
+    expect(createChunks).toHaveBeenCalledWith(mockFileData);
+    expect(sha1Base64).toHaveBeenCalledTimes(2);
+
+    // verify each chunk uploaded with digest
+    expect(uploadFileChunk).toHaveBeenCalledWith("session123", {
+      fileSize: 20,
+      chunk: { size: 10, data: "chunk1" },
+      startByte: 0,
+      endByte: 9,
+      digest: "digest1",
+    });
+
+    expect(uploadFileChunk).toHaveBeenCalledWith("session123", {
+      fileSize: 20,
+      chunk: { size: 10, data: "chunk2" },
+      startByte: 10,
+      endByte: 19,
+      digest: "digest2",
+    });
+
+    expect(finaliseUploadFile).toHaveBeenCalledWith("session123", {
+      parts: [{ partId: 1 }, { partId: 2 }],
+    });
+
+    expect(result).toEqual({ fileUrl: "https://file-url.com/file" });
+  });
+});
+----------
+
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import FileSetting from "./FileSetting";
+import { fileUpload } from "../utils/common/file-upload";
+import { uploadRegulatoryFile } from "../services/regulatory";
+
+jest.mock("../utils/common/file-upload");
+jest.mock("../services/regulatory");
+
+describe("FileSetting Component - handleUpload", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("should upload file and call uploadRegulatoryFile", async () => {
+    // mock fileUpload returning uploadResponse
+    (fileUpload as jest.Mock).mockResolvedValue({
+      fileUrl: "https://server.com/test.pdf",
+      fileName: "test.pdf",
+      fileUploadDateTime: "2025-01-01",
+    });
+
+    // mock regulatory
+    (uploadRegulatoryFile as jest.Mock).mockResolvedValue(true);
+
+    render(<FileSetting />);
+
+    const fileInput = screen.getByTestId("file-input");
+
+    const fakeFile = new File(["hello"], "test.pdf", { type: "application/pdf" });
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [fakeFile] } });
+    });
+
+    expect(fileUpload).toHaveBeenCalled();
+    expect(uploadRegulatoryFile).toHaveBeenCalledWith(
+      {
+        fileUrl: "https://server.com/test.pdf",
+        fileName: "test.pdf",
+        fileUploadDateTime: "2025-01-01",
+      },
+      expect.any(String) // description
+    );
+  });
+
+  test("should show error message when upload fails", async () => {
+    (fileUpload as jest.Mock).mockRejectedValue(new Error("Upload failed"));
+
+    render(<FileSetting />);
+
+    const fileInput = screen.getByTestId("file-input");
+    const fakeFile = new File(["hello"], "test.pdf");
+
+    await act(async () => {
+      fireEvent.change(fileInput, { target: { files: [fakeFile] } });
+    });
+
+    expect(await screen.findByText("File not uploaded")).toBeInTheDocument();
+  });
 });
