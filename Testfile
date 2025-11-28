@@ -14,3 +14,20 @@ beforeEach(() => {
     data: null,
   });
 });
+
+
+test("should show error message if upload fails", async () => {
+    (fileUpload as jest.Mock).mockRejectedValue(new Error("Upload error"));
+
+    render(<FileSetting />);
+
+    const input = screen.getByTestId("file-input");
+
+    const fakeFile = new File(["hello"], "bad.pdf");
+
+    fireEvent.change(input, {
+      target: { files: [fakeFile] },
+    });
+
+    expect(await screen.findByText("File not uploaded")).toBeInTheDocument();
+  })
