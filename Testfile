@@ -1,33 +1,165 @@
-import { useCreateRegulatoryFile } from "utils/hooks/useCreateRegulatoryFile";
+import { renderHook, act } from '@testing-library/react';
+import { useFileUpload } from './useFileUpload';
 
-jest.mock("utils/hooks/useCreateRegulatoryFile", () => ({
-  useCreateRegulatoryFile: jest.fn(),
+// -------------------
+// MOCK ALL HOOKS
+// -------------------
+jest.mock('./useUploadFile', () => ({
+  useUploadFile: () => ({
+    uploadFile: jest.fn(),
+  }),
 }));
 
-const mockCreateRegulatoryFile = jest.fn();
+jest.mock('./useInitialUploadFile', () => ({
+  useInitialUploadFile: () => ({
+    initialFileUpload: jest.fn(),
+  }),
+}));
 
-beforeEach(() => {
-  (useCreateRegulatoryFile as jest.Mock).mockReturnValue({
-    createRegulatoryFile: mockCreateRegulatoryFile,
-    loading: false,
-    error: null,
-    data: null,
+jest.mock('./useFinaliseUploadFile', () => ({
+  useFinaliseUploadFile: () => ({
+    finaliseUploadFile: jest.fn(),
+  }),
+}));
+
+jest.mock('./useUploadFileChunk', () => ({
+  useUploadFileChunk: () => ({
+    uploadFileChunk: jest.fn(),
+  }),
+}));
+
+jest.mock('./utils', () => ({
+  TEN_MB_IN_BYTES: 10_000_000,
+  createChunks: jest.fn(),
+}));
+
+// -------------------
+// IMPORT MOCKED FUNCTIONS
+// -------------------
+import { useUploadFile } from './useUploadFile';
+import { useInitialUploadFile } from './useInitialUploadFile';
+import { useFinaliseUploadFile } from './useFinaliseUploadFile';
+import { useUploadFileChunk } from './useUploadFileChunk';
+import { createChunks } from './utils';
+
+// Extract mock instances
+const uploadFileMock = (useUploadFile as any)().uploadFile;
+const initialFileUploadMock = (useInitialUploadFile as any)().initialFileUpload;
+const finaliseUploadFileMock = (useFinaliseUploadFile as any)().finaliseUploadFile;
+const uploadFileChunkMock = (useUploadFileChunk as any)().uploadFileChunk;
+
+// -------------------
+// TEST SUITE
+// -------------------
+
+describe('useFileUpload Hook', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
-});
 
+  // -------------------
+  // TEST 1 — SMALL FILE UPLOAD
+  // -------------------
+  test('uploads a small file using uploadFile()', async () => {
+    const fileData = {
+      fileName: 'small.txt',
+      fileSize: 500,
+      file: new Blob(['hello']),
+    };
 
-test("should show error message if upload fails", async () => {
-    (fileUpload as jest.Mock).mockRejectedValue(new Error("Upload error"));
+    uploadFileMock.mockResolvedValue('UPLOAD_OK');
 
-    render(<FileSetting />);
+    const { result } = renderHook(() => useFileUpload());
 
-    const input = screen.getByTestId("file-input");
-
-    const fakeFile = new File(["hello"], "bad.pdf");
-
-    fireEvent.change(input, {
-      target: { files: [fakeFile] },
+    let response;
+    await act(async () => {
+      response = await result.current.fileUpload(fileData);
     });
 
-    expect(await screen.findByText("File not uploaded")).toBeInTheDocument();
-  })
+    expect(uploadFileMock).toHaveBeenCalledWith(fileData);
+    expect(response).toBe('UPLOAD_OK');
+  });
+
+  // -------------------
+  // TEST 2 — CHUNKED UPLOAD
+  // -------------------
+  test('uploads large files using chunk upload flow', async () => {
+    const fileData = {
+      fileName: 'large.bin',
+      fileSize: 20_000_000, // > 10MB
+      file: new Blob(['x'.repeat(20000000)]),
+    };
+
+    // Mock initial upload
+    initialFileUploadMock.mockResolvedValue({
+      uploadId: 'UPLOAD123',
+    });
+
+    // Mock chunk creation
+    createChunks.mockResolvedValue(['chunk1', 'chunk2']);
+
+    // Mock chunk upload responses
+    uploadFileChunkMock
+      .mockResolvedValueOnce({ partNumber: 1 })
+      .mockResolvedValueOnce({ partNumber: 2 });
+
+    // Mock finalise response
+    finaliseUploadFileMock.mockResolvedValue({ success: true });
+
+    const { result } = renderHook(() => useFileUpload());
+
+    let response;
+    await act(async () => {
+      response = await result.current.fileUpload(fileData);
+    });
+
+    // --- Validations ---
+    expect(initialFileUploadMock).toHaveBeenCalledWith({
+      fileSize: fileData.fileSize,
+      fileName: fileData.fileName,
+    });
+
+    expect(uploadFileChunkMock).toHaveBeenCalledTimes(2);
+
+    expect(uploadFileChunkMock).toHaveBeenNthCalledWith(1, {
+      fileSize: fileData.fileSize,
+      uploadId: 'UPLOAD123',
+      chunk: 'chunk1',
+      partNumber: 1,
+    });
+
+    expect(uploadFileChunkMock).toHaveBeenNthCalledWith(2, {
+      fileSize: fileData.fileSize,
+      uploadId: 'UPLOAD123',
+      chunk: 'chunk2',
+      partNumber: 2,
+    });
+
+    expect(finaliseUploadFileMock).toHaveBeenCalledWith({
+      uploadId: 'UPLOAD123',
+      fileName: fileData.fileName,
+      parts: [{ partNumber: 1 }, { partNumber: 2 }],
+    });
+
+    expect(response).toEqual({ success: true });
+  });
+
+  // -------------------
+  // TEST 3 — ERROR HANDLING
+  // -------------------
+  test('throws error when uploadFile fails', async () => {
+    const fileData = {
+      fileName: 'fail.txt',
+      fileSize: 500,
+      file: new Blob(['x']),
+    };
+
+    uploadFileMock.mockRejectedValue(new Error('Upload failed'));
+
+    const { result } = renderHook(() => useFileUpload());
+
+    await expect(result.current.fileUpload(fileData))
+      .rejects
+      .toThrow('Upload failed');
+  });
+});
