@@ -2,34 +2,34 @@ import { renderHook, act } from "@testing-library/react";
 import { useFileUpload } from "./useFileUpload";
 
 // ---------------------------------------------------
-// ✅ MOCK ALL HOOKS (paths must match EXACTLY)
+// MOCK HOOKS (MUST MATCH YOUR ACTUAL IMPORT PATHS)
 // ---------------------------------------------------
-jest.mock("utils/hooks/useUploadFile", () => ({
+jest.mock("./useUploadFile", () => ({
   useUploadFile: () => ({
     uploadFile: jest.fn(),
   }),
 }));
 
-jest.mock("utils/hooks/useInitialUploadFile", () => ({
+jest.mock("./useInitialUploadFile", () => ({
   useInitialUploadFile: () => ({
     initialFileUpload: jest.fn(),
   }),
 }));
 
-jest.mock("utils/hooks/useFinaliseUploadFile", () => ({
+jest.mock("./useFinaliseUploadFile", () => ({
   useFinaliseUploadFile: () => ({
     finaliseUploadFile: jest.fn(),
   }),
 }));
 
-jest.mock("utils/hooks/useUploadFileChunk", () => ({
+jest.mock("./useUploadFileChunk", () => ({
   useUploadFileChunk: () => ({
     uploadFileChunk: jest.fn(),
   }),
 }));
 
 // ---------------------------------------------------
-// ✅ MOCK UTIL FUNCTIONS (createChunks, sha1Base64)
+// MOCK UTIL FUNCTIONS (MATCHES YOUR REAL PATH)
 // ---------------------------------------------------
 jest.mock("utils/common/file-upload", () => ({
   createChunks: jest.fn(),
@@ -37,19 +37,19 @@ jest.mock("utils/common/file-upload", () => ({
 }));
 
 // ---------------------------------------------------
-// ✅ MOCK CONSTANTS
+// MOCK CONSTANTS
 // ---------------------------------------------------
-jest.mock("utils/constants/common", () => ({
+jest.mock("constants/common", () => ({
   TEN_MB_IN_BYTES: 10_000_000,
 }));
 
 // ---------------------------------------------------
 // IMPORT MOCK INSTANCES
 // ---------------------------------------------------
-import { useUploadFile } from "utils/hooks/useUploadFile";
-import { useInitialUploadFile } from "utils/hooks/useInitialUploadFile";
-import { useFinaliseUploadFile } from "utils/hooks/useFinaliseUploadFile";
-import { useUploadFileChunk } from "utils/hooks/useUploadFileChunk";
+import { useUploadFile } from "./useUploadFile";
+import { useInitialUploadFile } from "./useInitialUploadFile";
+import { useFinaliseUploadFile } from "./useFinaliseUploadFile";
+import { useUploadFileChunk } from "./useUploadFileChunk";
 import { createChunks, sha1Base64 } from "utils/common/file-upload";
 
 const uploadFileMock = useUploadFile().uploadFile as jest.Mock;
@@ -71,16 +71,17 @@ describe("useFileUpload", () => {
     jest.clearAllMocks();
   });
 
-  // -------------------------------
-  // ✅ TEST 1: Small File Upload
-  // -------------------------------
+  // ---------------------------------------------------
+  // SMALL FILE
+  // ---------------------------------------------------
   test("uploads small file via uploadFile()", async () => {
+    const file = new File(["hello"], "small.txt", { type: "text/plain" });
+
     const fileData = {
-      file: new File(["hello world"], "small.txt", {
-        type: "text/plain",
-      }),
-      fileSize: 100,
-      fileName: "small.txt",
+      file,
+      fileSize: file.size,
+      fileName: file.name,
+      fileType: file.type,
     };
 
     uploadFileMock.mockResolvedValue("UPLOAD_OK");
@@ -96,38 +97,35 @@ describe("useFileUpload", () => {
     expect(response).toBe("UPLOAD_OK");
   });
 
-  // ---------------------------------
-  // ✅ TEST 2: Large File / Chunk Upload
-  // ---------------------------------
+  // ---------------------------------------------------
+  // LARGE FILE / CHUNK UPLOAD
+  // ---------------------------------------------------
   test("uploads large file using chunk upload flow", async () => {
+    const file = new File(
+      ["x".repeat(20000)],
+      "bigfile.bin",
+      { type: "application/octet-stream" }
+    );
+
     const fileData = {
-      file: new File(
-        ["x".repeat(20000)],
-        "bigfile.bin",
-        { type: "application/octet-stream" }
-      ),
+      file,
       fileSize: 20_000_000,
-      fileName: "bigfile.bin",
+      fileName: file.name,
+      fileType: file.type,
     };
 
-    // Mock initial upload response
     initialFileUploadMock.mockResolvedValue({
       uploadId: "UPLOAD123",
       sessionId: "SESSION123",
     });
 
-    // Mock chunk creation
     createChunksMock.mockResolvedValue(["chunk1", "chunk2"]);
-
-    // Mock hashing
     sha1Base64Mock.mockResolvedValue("digest123");
 
-    // Mock chunk uploads
     uploadFileChunkMock
       .mockResolvedValueOnce({ partNumber: 1 })
       .mockResolvedValueOnce({ partNumber: 2 });
 
-    // Mock finalisation
     finaliseUploadFileMock.mockResolvedValue({ success: true });
 
     const { result } = renderHook(() => useFileUpload());
@@ -137,10 +135,8 @@ describe("useFileUpload", () => {
       response = await result.current.fileUpload(fileData);
     });
 
-    // Assert initial upload called
     expect(initialFileUploadMock).toHaveBeenCalled();
 
-    // Assert chunk uploads
     expect(uploadFileChunkMock).toHaveBeenCalledTimes(2);
 
     expect(finaliseUploadFileMock).toHaveBeenCalledWith({
