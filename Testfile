@@ -1,9 +1,9 @@
 import { renderHook, act } from "@testing-library/react";
 import { useFileUpload } from "./useFileUpload";
 
-// ---------------------------------------------------
-// MOCK HOOKS (MUST MATCH YOUR ACTUAL IMPORT PATHS)
-// ---------------------------------------------------
+// --------------------------------------------------
+// MOCK HOOKS (relative paths!) 🔥
+// --------------------------------------------------
 jest.mock("./useUploadFile", () => ({
   useUploadFile: () => ({
     uploadFile: jest.fn(),
@@ -28,24 +28,21 @@ jest.mock("./useUploadFileChunk", () => ({
   }),
 }));
 
-// ---------------------------------------------------
-// MOCK UTIL FUNCTIONS (MATCHES YOUR REAL PATH)
-// ---------------------------------------------------
+// --------------------------------------------------
+// MOCK UTIL FUNCTIONS (must match alias path!) 🔥
+// --------------------------------------------------
 jest.mock("utils/common/file-upload", () => ({
   createChunks: jest.fn(),
   sha1Base64: jest.fn(),
 }));
 
-// ---------------------------------------------------
-// MOCK CONSTANTS
-// ---------------------------------------------------
 jest.mock("constants/common", () => ({
   TEN_MB_IN_BYTES: 10_000_000,
 }));
 
-// ---------------------------------------------------
+// --------------------------------------------------
 // IMPORT MOCK INSTANCES
-// ---------------------------------------------------
+// --------------------------------------------------
 import { useUploadFile } from "./useUploadFile";
 import { useInitialUploadFile } from "./useInitialUploadFile";
 import { useFinaliseUploadFile } from "./useFinaliseUploadFile";
@@ -63,24 +60,24 @@ const uploadFileChunkMock =
 const createChunksMock = createChunks as jest.Mock;
 const sha1Base64Mock = sha1Base64 as jest.Mock;
 
-// ---------------------------------------------------
+// --------------------------------------------------
 // TEST SUITE
-// ---------------------------------------------------
+// --------------------------------------------------
 describe("useFileUpload", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // ---------------------------------------------------
+  // --------------------------------------------------
   // SMALL FILE
-  // ---------------------------------------------------
+  // --------------------------------------------------
   test("uploads small file via uploadFile()", async () => {
     const file = new File(["hello"], "small.txt", { type: "text/plain" });
 
     const fileData = {
       file,
-      fileSize: file.size,
       fileName: file.name,
+      fileSize: file.size,
       fileType: file.type,
     };
 
@@ -93,13 +90,14 @@ describe("useFileUpload", () => {
       response = await result.current.fileUpload(fileData);
     });
 
+    expect(uploadFileMock).toHaveBeenCalledTimes(1);
     expect(uploadFileMock).toHaveBeenCalledWith(fileData);
     expect(response).toBe("UPLOAD_OK");
   });
 
-  // ---------------------------------------------------
+  // --------------------------------------------------
   // LARGE FILE / CHUNK UPLOAD
-  // ---------------------------------------------------
+  // --------------------------------------------------
   test("uploads large file using chunk upload flow", async () => {
     const file = new File(
       ["x".repeat(20000)],
@@ -109,8 +107,8 @@ describe("useFileUpload", () => {
 
     const fileData = {
       file,
-      fileSize: 20_000_000,
       fileName: file.name,
+      fileSize: 20_000_000,
       fileType: file.type,
     };
 
@@ -135,14 +133,17 @@ describe("useFileUpload", () => {
       response = await result.current.fileUpload(fileData);
     });
 
-    expect(initialFileUploadMock).toHaveBeenCalled();
+    // Assert initial upload was called
+    expect(initialFileUploadMock).toHaveBeenCalledTimes(1);
 
+    // Assert chunk uploads
     expect(uploadFileChunkMock).toHaveBeenCalledTimes(2);
 
+    // Assert finalise call
     expect(finaliseUploadFileMock).toHaveBeenCalledWith({
       uploadId: "UPLOAD123",
-      parts: [{ partNumber: 1 }, { partNumber: 2 }],
       fileName: "bigfile.bin",
+      parts: [{ partNumber: 1 }, { partNumber: 2 }],
     });
 
     expect(response).toEqual({ success: true });
