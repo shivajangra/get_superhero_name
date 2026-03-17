@@ -1,151 +1,28 @@
-import { renderHook, act } from "@testing-library/react";
-import { useFileUpload } from "./useFileUpload";
+You are a senior frontend engineer.
 
-// --------------------------------------------------
-// MOCK HOOKS (relative paths!) 🔥
-// --------------------------------------------------
-jest.mock("./useUploadFile", () => ({
-  useUploadFile: () => ({
-    uploadFile: jest.fn(),
-  }),
-}));
+Your task is to recreate the EXACT UI from the provided screenshot with pixel-perfect accuracy.
 
-jest.mock("./useInitialUploadFile", () => ({
-  useInitialUploadFile: () => ({
-    initialFileUpload: jest.fn(),
-  }),
-}));
+Requirements:
 
-jest.mock("./useFinaliseUploadFile", () => ({
-  useFinaliseUploadFile: () => ({
-    finaliseUploadFile: jest.fn(),
-  }),
-}));
+1. Layout & Spacing
+- Maintain PERFECT symmetry between left and right margins.
+- The spacing on the left side and right side must be EXACTLY equal.
+- The gap between all form fields (vertical spacing) must be consistent and match the screenshot.
+- The spacing between sections (top, bottom, and between groups) must also be consistent.
+- Follow an 8px grid system unless the screenshot suggests otherwise.
 
-jest.mock("./useUploadFileChunk", () => ({
-  useUploadFileChunk: () => ({
-    uploadFileChunk: jest.fn(),
-  }),
-}));
+2. Container & Alignment
+- Center the entire layout horizontally on the page.
+- Use a fixed max-width container (e.g., 960px or based on screenshot proportion).
+- Ensure proper padding inside the container.
+- All fields should align perfectly in a structured grid.
 
-// --------------------------------------------------
-// MOCK UTIL FUNCTIONS (must match alias path!) 🔥
-// --------------------------------------------------
-jest.mock("utils/common/file-upload", () => ({
-  createChunks: jest.fn(),
-  sha1Base64: jest.fn(),
-}));
-
-jest.mock("constants/common", () => ({
-  TEN_MB_IN_BYTES: 10_000_000,
-}));
-
-// --------------------------------------------------
-// IMPORT MOCK INSTANCES
-// --------------------------------------------------
-import { useUploadFile } from "./useUploadFile";
-import { useInitialUploadFile } from "./useInitialUploadFile";
-import { useFinaliseUploadFile } from "./useFinaliseUploadFile";
-import { useUploadFileChunk } from "./useUploadFileChunk";
-import { createChunks, sha1Base64 } from "utils/common/file-upload";
-
-const uploadFileMock = useUploadFile().uploadFile as jest.Mock;
-const initialFileUploadMock =
-  useInitialUploadFile().initialFileUpload as jest.Mock;
-const finaliseUploadFileMock =
-  useFinaliseUploadFile().finaliseUploadFile as jest.Mock;
-const uploadFileChunkMock =
-  useUploadFileChunk().uploadFileChunk as jest.Mock;
-
-const createChunksMock = createChunks as jest.Mock;
-const sha1Base64Mock = sha1Base64 as jest.Mock;
-
-// --------------------------------------------------
-// TEST SUITE
-// --------------------------------------------------
-describe("useFileUpload", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  // --------------------------------------------------
-  // SMALL FILE
-  // --------------------------------------------------
-  test("uploads small file via uploadFile()", async () => {
-    const file = new File(["hello"], "small.txt", { type: "text/plain" });
-
-    const fileData = {
-      file,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-    };
-
-    uploadFileMock.mockResolvedValue("UPLOAD_OK");
-
-    const { result } = renderHook(() => useFileUpload());
-
-    let response;
-    await act(async () => {
-      response = await result.current.fileUpload(fileData);
-    });
-
-    expect(uploadFileMock).toHaveBeenCalledTimes(1);
-    expect(uploadFileMock).toHaveBeenCalledWith(fileData);
-    expect(response).toBe("UPLOAD_OK");
-  });
-
-  // --------------------------------------------------
-  // LARGE FILE / CHUNK UPLOAD
-  // --------------------------------------------------
-  test("uploads large file using chunk upload flow", async () => {
-    const file = new File(
-      ["x".repeat(20000)],
-      "bigfile.bin",
-      { type: "application/octet-stream" }
-    );
-
-    const fileData = {
-      file,
-      fileName: file.name,
-      fileSize: 20_000_000,
-      fileType: file.type,
-    };
-
-    initialFileUploadMock.mockResolvedValue({
-      uploadId: "UPLOAD123",
-      sessionId: "SESSION123",
-    });
-
-    createChunksMock.mockResolvedValue(["chunk1", "chunk2"]);
-    sha1Base64Mock.mockResolvedValue("digest123");
-
-    uploadFileChunkMock
-      .mockResolvedValueOnce({ partNumber: 1 })
-      .mockResolvedValueOnce({ partNumber: 2 });
-
-    finaliseUploadFileMock.mockResolvedValue({ success: true });
-
-    const { result } = renderHook(() => useFileUpload());
-
-    let response;
-    await act(async () => {
-      response = await result.current.fileUpload(fileData);
-    });
-
-    // Assert initial upload was called
-    expect(initialFileUploadMock).toHaveBeenCalledTimes(1);
-
-    // Assert chunk uploads
-    expect(uploadFileChunkMock).toHaveBeenCalledTimes(2);
-
-    // Assert finalise call
-    expect(finaliseUploadFileMock).toHaveBeenCalledWith({
-      uploadId: "UPLOAD123",
-      fileName: "bigfile.bin",
-      parts: [{ partNumber: 1 }, { partNumber: 2 }],
-    });
-
-    expect(response).toEqual({ success: true });
-  });
-});
+3. Fields & Components
+- Replicate all input fields, dropdowns, labels, and buttons exactly.
+- Match:
+  - font size
+  - font weight
+  - border radius
+  - input height
+  - placeholder styling
+- Maintain equal spacing between label and input fields
